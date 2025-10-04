@@ -1,3 +1,17 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body{
+  margin: 0
+}
+
 .login-box{
   width: 40%;
   height: 60%;
@@ -19,6 +33,13 @@
   margin-top: 10%;
   background-color:#4D7EA8;
   border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.25s;
 }
 .login-input{
   padding: 10px 15px;
@@ -42,4 +63,36 @@
 }
 .login-title{
   font-size: 2.3rem;
+}
+.navbar-container{
+  width: 100vw;
+  height: 10vh;
+  background-color: #4D7EA8;
+  top:0;
+  left:0;
+  position: fixed;
+}
+.navbar-content{
+  display: flex;
+  align-items: center;  
+  height: 100%;
+  margin-left: 1%;
+}
+.navbar-list{
+  margin-left: 65vw;
+}
+.navbar-list > li{
+  display: inline-block;
+  list-style: none;
+  margin-left: 2vw;
+  color: #ffff;
+  font-size: 1.3rem;
+  font-weight: 500
+}
+.body-container{
+  width: 100vw;
+  height: 90vh;
+  margin-top: 10vh;
+  background-color: #bababa;
+  left: 0;
 }

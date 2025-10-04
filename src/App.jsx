@@ -1,14 +1,13 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
-import LoginBox from './components/loginbox'
+import LoginPage from './pages/loginpage'
+import Navbar from './components/navbar'
+import HomePage from './pages/homepage'
+
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
-    <LoginBox/>
+    <HomePage/>
     </>
   )
 }

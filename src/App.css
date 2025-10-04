@@ -79,7 +79,7 @@ body{
   margin-left: 1%;
 }
 .navbar-list{
-  margin-left: 65vw;
+  margin-left: 10vw;
 }
 .navbar-list > li{
   display: inline-block;
@@ -87,7 +87,7 @@ body{
   margin-left: 2vw;
   color: #ffff;
   font-size: 1.3rem;
-  font-weight: 500
+  font-weight: 500;
 }
 .body-container{
   width: 100vw;
@@ -95,4 +95,47 @@ body{
   margin-top: 10vh;
   background-color: #bababa;
   left: 0;
+  justify-content: center;
+  display: flex;
+}
+a{
+  text-decoration: none;
+  color: inherit;
+}
+.home-container{
+  width: 60vw;
+  height: 70vh;
+  margin-top: 6%;
+  display: flex;
+  flex-direction: column;
+}
+.user-info{
+  background-color: white;
+  width: 100%;
+  height: 100%;
+  border-bottom: 1px solid grey;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.home-arrow{
+  font-size: 2rem;
+  position: absolute;
+  left: 75%;
+}
+h1 {
+  margin-left: 3%
+}
+.navbar-tenant{
+  position: absolute;
+  left: 8%;
+  color: #fff;
+}
+.link-wrapper {
+  text-decoration: none;
+  color: inherit;
+  display: block;         /* Needed so that 100% width works */
+  width: 100%;            /* Match .user-info if necessary */
+  height: 33%;            /* Match .user-info if necessary */
+  border-bottom: 1px solid grey;
 }

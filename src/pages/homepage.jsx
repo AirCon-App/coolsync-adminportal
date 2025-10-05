@@ -9,7 +9,7 @@ export default function HomePage() {
       <Navbar />
       <div className="body-container">
         <div className="home-container">
-        <Link to='/user' className="link-wrapper">
+        <Link to='/usermanagement' className="link-wrapper">
           <div className="user-info">
             <h1>Manage your User Profile</h1>
             <SlArrowRight className="home-arrow" />

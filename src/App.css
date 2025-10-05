@@ -28,6 +28,7 @@ body{
   width: 100vw;
   height: 100vh;
   background-color: #4D7EA8;
+  flex-direction: column;
 }
 .button{
   margin-top: 10%;
@@ -40,6 +41,7 @@ body{
   font-family: inherit;
   cursor: pointer;
   transition: border-color 0.25s;
+  color: #fff
 }
 .login-input{
   padding: 10px 15px;
@@ -72,6 +74,14 @@ body{
   left:0;
   position: fixed;
 }
+.navbar-logo {
+  display: inline-block; /* shrink-wrap to img */
+}
+.navbar-logo img {
+  max-width: 100px;
+  height: auto;  /* maintain aspect ratio */
+  display: block; /* remove inline img whitespace */
+}
 .navbar-content{
   display: flex;
   align-items: center;  
@@ -79,7 +89,7 @@ body{
   margin-left: 1%;
 }
 .navbar-list{
-  margin-left: 10vw;
+  margin-left: 65vw;
 }
 .navbar-list > li{
   display: inline-block;
@@ -138,4 +148,77 @@ h1 {
   width: 100%;            /* Match .user-info if necessary */
   height: 33%;            /* Match .user-info if necessary */
   border-bottom: 1px solid grey;
+}
+.login-footer{
+    position: absolute;
+    top: 80vh;
+}
+.inventory-button{
+  margin-top: 3%;
+  background-color:#4D7EA8;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1.2em;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.25s;
+  color: #fff;
+  height: 8%;
+  width: 15vw;
+  margin-bottom: 4%;
+}
+.inventory-button:hover{
+  border-color: #4D7EA8; /* or your brand color */
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+}
+.inventory-container{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.inventory-list{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+    gap: 5vw; /* spacing between items */
+
+}
+.inventory-item {
+  width: 15vw;
+  height: 10vh;
+  background-color: white;
+  margin-top: 3%;
+  border-radius: 4%;
+  
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px; /* padding so text and arrow don't touch edges */
+  box-sizing: border-box;
+}
+
+.inventory-item > div {
+  /* Container for title & subtitle */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* vertically center text block */
+  align-items: center;     /* horizontally center text */
+  width: 70%;              /* take about 70% width, leaving space for arrow */
+}
+
+.inventory-title {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.inventory-subtitle {
+  font-size: 1rem;
+  margin: 0;
+  color: #555;
+}
+
+.inventory-arrow {
+  font-size: 1.5rem; /* increase size for visibility */
+  color: #888;
 }

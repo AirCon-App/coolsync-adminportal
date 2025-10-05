@@ -5,11 +5,9 @@ export default function Navbar() {
   return (
     <div className="navbar-container">
       <div className="navbar-content">
-        <Link to="/">
+        <Link to="/home" className="navbar-logo">
           <img
             src="src/assets/coolsync white no text.png"
-            width="10%"
-            height="100%"
           />
         </Link>
         <h2 className="navbar-tenant">Caesar's Superdome</h2>

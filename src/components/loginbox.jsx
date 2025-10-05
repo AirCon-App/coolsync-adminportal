@@ -10,12 +10,13 @@ export default function LoginBox() {
         <input className="login-input" type="text" placeholder="Username" />
         <p className="login-text">Password</p>
         <input className="login-input" type="text" placeholder="Password" />
-        <Link to="/">
+        <Link to="/home">
           <button className="button" type="submit">
             Submit
           </button>
         </Link>
       </div>
+      <p className="login-footer ">Powered by NJ Filters © 2025</p>
     </div>
   );
 }

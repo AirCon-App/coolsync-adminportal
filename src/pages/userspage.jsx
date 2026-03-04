@@ -1,14 +1,14 @@
 import React from "react";
 import Navbar from "../components/navbar";
 
-export default function UserPage() {
+export default function UsersPage() {
   return (
     <>
       <Navbar />
       <div className="body-container">
         <div className="inventory-container">
           <h1 style={{ color: "#e5e7eb", marginBottom: "0.75rem" }}>
-            Manage your account
+            Manage team users
           </h1>
           <p
             style={{
@@ -18,38 +18,33 @@ export default function UserPage() {
               fontSize: "0.95rem",
             }}
           >
-            Update your personal details and keep your account secure.
+            Invite new users to CoolSync or remove existing access.
           </p>
+          <button className="inventory-button">
+            <span>+</span> Add new user
+          </button>
           <div className="inventory-list">
             <div className="inventory-item">
               <div>
-                <h1 className="inventory-title">Change password</h1>
+                <h1 className="inventory-title">Add a user</h1>
                 <p className="inventory-subtitle">
-                  Update your password to keep your account protected.
+                  Create a new account and assign the right role.
                 </p>
               </div>
             </div>
             <div className="inventory-item">
               <div>
-                <h1 className="inventory-title">Update contact details</h1>
+                <h1 className="inventory-title">Remove a user</h1>
                 <p className="inventory-subtitle">
-                  Review or change your email and phone number.
+                  Safely revoke access when someone leaves your team.
                 </p>
               </div>
             </div>
             <div className="inventory-item">
               <div>
-                <h1 className="inventory-title">Session &amp; device activity</h1>
+                <h1 className="inventory-title">Edit user roles</h1>
                 <p className="inventory-subtitle">
-                  See where you&apos;re signed in and manage active sessions.
-                </p>
-              </div>
-            </div>
-            <div className="inventory-item">
-              <div>
-                <h1 className="inventory-title">Notification preferences</h1>
-                <p className="inventory-subtitle">
-                  Decide what alerts you want to receive from CoolSync.
+                  Promote, demote, or fine-tune user permissions.
                 </p>
               </div>
             </div>

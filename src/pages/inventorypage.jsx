@@ -10,7 +10,7 @@ export default function InventoryPage() {
     api.get("/Inventory?buildingId=1").then((response) => {
       setData(response.data);
     });
-  }, []);
+  }, [data]);
 
   // Callback to update quantity in parent state
   const updateQuantity = (itemNumber, newQuantity) => {

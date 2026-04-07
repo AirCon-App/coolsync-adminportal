@@ -1,7 +1,26 @@
 import Navbar from "../components/navbar";
 import InventoryButton from "../components/inventorybutton";
+import { useState, useEffect } from "react";
+import api from "../data/api";
 
 export default function InventoryPage() {
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    api.get("/Inventory?buildingId=1").then((response) => {
+      setData(response.data);
+    });
+  }, []);
+
+  console.log(data);
+
+  const inventoryItems = data.map((inventoryItem) => (
+    <InventoryButton
+      key={inventoryItem.id}
+      title={inventoryItem.catalogItem.name}
+      quantity={inventoryItem.quantity}
+    />
+  ));
   return (
     <>
       <Navbar />
@@ -10,12 +29,7 @@ export default function InventoryPage() {
           <button className="inventory-button">
             <span>+</span> Add Inventory Item
           </button>
-          <div className="inventory-list">
-            <InventoryButton title={"Air Filter 1"}quantity={3}/>
-            <InventoryButton title={"Air Filter 2"}quantity={5}/>
-            <InventoryButton title={"Air Filter 3"}quantity={10}/>
-            <InventoryButton title={"Air Filter 4"}quantity={12}/>
-          </div>
+          <div className="inventory-list">{inventoryItems}</div>
         </div>
       </div>
     </>

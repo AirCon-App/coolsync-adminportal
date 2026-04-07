@@ -12,15 +12,17 @@ export default function InventoryPage() {
     });
   }, []);
 
-  console.log(data);
+  // Callback to update quantity in parent state
+  const updateQuantity = (itemNumber, newQuantity) => {
+    setData((prevData) =>
+      prevData.map((item) =>
+        item.itemNumber === itemNumber
+          ? { ...item, quantity: newQuantity }
+          : item,
+      ),
+    );
+  };
 
-  const inventoryItems = data.map((inventoryItem) => (
-    <InventoryButton
-      key={inventoryItem.id}
-      title={inventoryItem.catalogItem.name}
-      quantity={inventoryItem.quantity}
-    />
-  ));
   return (
     <>
       <Navbar />
@@ -29,7 +31,19 @@ export default function InventoryPage() {
           <button className="inventory-button">
             <span>+</span> Add Inventory Item
           </button>
-          <div className="inventory-list">{inventoryItems}</div>
+          <div className="inventory-list">
+            {data.map((inventoryItem) => (
+              <InventoryButton
+                key={inventoryItem.itemNumber}
+                title={inventoryItem.catalogItem.name}
+                quantity={inventoryItem.quantity}
+                itemNumber={inventoryItem.itemNumber}
+                catalogItemId={inventoryItem.catalogItemId}
+                buildingId={inventoryItem.buildingId}
+                onQuantityUpdate={updateQuantity} // pass callback
+              />
+            ))}
+          </div>
         </div>
       </div>
     </>

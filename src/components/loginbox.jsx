@@ -25,7 +25,7 @@ export default function LoginBox() {
       }
 
       // ✅ Navigate to homepage
-      navigate("/homepage");
+      navigate("/home");
     } catch (err) {
       console.log(err);
       console.log("ERROR RESPONSE:", err.response?.data);

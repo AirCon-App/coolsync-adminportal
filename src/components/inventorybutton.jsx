@@ -1,27 +1,38 @@
 import React, { useState } from "react";
 import { SlArrowRight } from "react-icons/sl";
+import api from "../data/api";
 
-export default function inventorybutton(props) {
+export default function InventoryButton(props) {
   const [isEditing, setIsEditing] = useState(false);
   const [quantity, setQuantity] = useState(props.quantity ?? 0);
 
-  const handleOpen = () => {
-    setIsEditing(true);
-  };
+  const handleOpen = () => setIsEditing(true);
+  const handleClose = () => setIsEditing(false);
 
-  const handleClose = () => {
-    setIsEditing(false);
-  };
+  const handleSave = async () => {
+    try {
+      // Send all required fields to backend
+      await api.put(`/Inventory/${props.itemNumber}`, {
+        itemNumber: props.itemNumber,
+        catalogItemId: props.catalogItemId,
+        buildingId: props.buildingId,
+        quantity: quantity,
+      });
 
-  const handleSave = () => {
-    // In the future you can call an API or parent callback here.
-    setIsEditing(false);
+      // Update parent state
+      if (props.onQuantityUpdate) {
+        props.onQuantityUpdate(props.itemNumber, quantity);
+      }
+
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Failed to update inventory:", err);
+    }
   };
 
   const handleChange = (e) => {
     const value = Number(e.target.value);
-    if (Number.isNaN(value)) return;
-    setQuantity(value);
+    if (!Number.isNaN(value)) setQuantity(value);
   };
 
   return (

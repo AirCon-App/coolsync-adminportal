@@ -8,7 +8,7 @@ export default defineConfig({
       "/api": {
         target: "https://api.njfiltersllc.com",
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

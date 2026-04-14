@@ -478,6 +478,38 @@ a {
   box-shadow: none;
 }
 
+/* ---------- Users ---------- */
+
+.user-action-btn {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  color: #e5e7eb;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 0.3rem 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.user-action-btn:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.user-action-btn--danger:hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.user-form-label {
+  display: block;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin-bottom: 0.35rem;
+}
+
 /* ---------- Misc ---------- */
 
 h1 {

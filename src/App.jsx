@@ -6,6 +6,7 @@ import UserPage from "./pages/userpage";
 import InventoryPage from "./pages/inventorypage";
 import UsersPage from "./pages/userspage";
 import AirHandlersPage from "./pages/airhandlers";
+import AirHandlerDetailPage from "./pages/airhandlerdetail";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/airhandlers" element={<AirHandlersPage />} />
+          <Route path="/airhandlers/:guid" element={<AirHandlerDetailPage />} />
         </Routes>
       </div>
     </Router>

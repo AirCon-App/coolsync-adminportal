@@ -13,7 +13,7 @@ export default function LoginBox() {
     setError("");
 
     try {
-      const response = await api.post("api/Auth/login", {
+      const response = await api.post("Auth/login", {
         email: username,
         password,
       });

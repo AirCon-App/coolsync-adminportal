@@ -76,7 +76,7 @@ export default function InventoryPage() {
                 title={inventoryItem.catalogItem.name}
                 quantity={inventoryItem.quantity}
                 itemNumber={inventoryItem.itemNumber}
-                catalogItemId={inventoryItem.catalogItemId}
+                catalogItemId={inventoryItem.catalogItem.catalogItemId}
                 buildingId={inventoryItem.buildingId}
                 onQuantityUpdate={updateQuantity}
               />

@@ -121,21 +121,24 @@ export default function ReportingPage() {
   const [airHandlers, setAirHandlers] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [catalogItems, setCatalogItems] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [buildingLoading, setBuildingLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Phase 1: fetch buildings and users once on mount
+  // Phase 1: fetch buildings, users, and full catalog once on mount
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [bRes, uRes] = await Promise.all([
+        const [bRes, uRes, catRes] = await Promise.all([
           api.get("/Buildings"),
           api.get("/Auth/users"),
+          api.get("/ItemCatalog"),
         ]);
         setBuildings(bRes.data);
         setUsers(uRes.data);
+        setCatalogItems(catRes.data);
         if (bRes.data.length > 0) {
           setSelectedBuilding(String(bRes.data[0].buildingId));
         }
@@ -188,11 +191,9 @@ export default function ReportingPage() {
 
   const itemNameMap = useMemo(() => {
     const m = {};
-    inventory.forEach((inv) => {
-      if (inv.catalogItem) m[inv.catalogItem.catalogItemId] = inv.catalogItem.name;
-    });
+    catalogItems.forEach((cat) => { m[cat.catalogItemId] = cat.name; });
     return m;
-  }, [inventory]);
+  }, [catalogItems]);
 
   // ─── Filter Activity Report data ────────────────────────────────────────
 

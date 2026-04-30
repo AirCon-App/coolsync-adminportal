@@ -21,6 +21,9 @@ export default function Navbar() {
             <li>
               <Link to="/users">Users</Link>
             </li>
+            <li>
+              <Link to="/reports">Reporting</Link>
+            </li>
           </ul>
         </div>
       </div>

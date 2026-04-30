@@ -7,6 +7,7 @@ import InventoryPage from "./pages/inventorypage";
 import UsersPage from "./pages/userspage";
 import AirHandlersPage from "./pages/airhandlers";
 import AirHandlerDetailPage from "./pages/airhandlerdetail";
+import ReportingPage from "./pages/ReportingPage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/airhandlers" element={<AirHandlersPage />} />
           <Route path="/airhandlers/:guid" element={<AirHandlerDetailPage />} />
+          <Route path="/reports" element={<ReportingPage />} />
         </Routes>
       </div>
     </Router>

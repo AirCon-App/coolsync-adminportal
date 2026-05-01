@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
 
@@ -6,14 +6,21 @@ const ROLES = ["User", "BuildingAdmin", "SuperAdmin"];
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
+  const [buildings, setBuildings] = useState([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
   const [reassignToId, setReassignToId] = useState("");
   const [deleteError, setDeleteError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("fullName");
+  const [sortDir, setSortDir] = useState("asc");
 
   useEffect(() => {
     api.get("/Auth/users").then((res) => setUsers(res.data));
+    api.get("/Buildings").then((res) => setBuildings(res.data));
   }, []);
 
   const handleAdd = async (form) => {
@@ -25,10 +32,65 @@ export default function UsersPage() {
 
   const handleEdit = async (form) => {
     const res = await api.put(`/Auth/users/${editingUser.id}`, form);
-    setUsers((prev) =>
-      prev.map((u) => (u.id === editingUser.id ? res.data : u))
-    );
+    const updated = res.data;
+
+    // If building changed, also call the building assignment endpoint
+    if (form.buildingId !== editingUser.buildingId) {
+      const buildingRes = await api.put(`/Auth/users/${editingUser.id}/building`, {
+        buildingId: form.buildingId ?? null,
+      });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === editingUser.id ? buildingRes.data : u))
+      );
+    } else {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === editingUser.id ? updated : u))
+      );
+    }
     setEditingUser(null);
+  };
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    let rows = users;
+
+    // Building filter: show users assigned to this building, plus SuperAdmins (null buildingId)
+    if (selectedBuildingId !== "all") {
+      const bid = Number(selectedBuildingId);
+      rows = rows.filter((u) => u.buildingId === bid || u.buildingId === null);
+    }
+
+    if (q) {
+      rows = rows.filter(
+        (u) =>
+          u.fullName?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q)
+      );
+    }
+    if (roleFilter !== "all") {
+      rows = rows.filter((u) => u.role === roleFilter);
+    }
+    return [...rows].sort((a, b) => {
+      const av = (a[sortKey] ?? "").toLowerCase();
+      const bv = (b[sortKey] ?? "").toLowerCase();
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [users, selectedBuildingId, search, roleFilter, sortKey, sortDir]);
+
+  const SortIcon = ({ col }) => {
+    if (sortKey !== col) return <span className="sort-icon">↕</span>;
+    return <span className="sort-icon active">{sortDir === "asc" ? "↑" : "↓"}</span>;
   };
 
   const handleDelete = async () => {
@@ -45,62 +107,137 @@ export default function UsersPage() {
     }
   };
 
+  const selectedBuilding = buildings.find((b) => b.buildingId === Number(selectedBuildingId));
+
   return (
     <PageShell>
-      <div className="inventory-container">
-          <h1 style={{ color: "var(--text-primary)", marginBottom: "0.75rem" }}>
-            Manage team users
-          </h1>
-          <p
-            style={{
-              color: "var(--text-secondary)",
-              marginTop: 0,
-              marginBottom: "1.5rem",
-              fontSize: "0.95rem",
-            }}
+      <div className="inventory-container" style={{ maxWidth: 900 }}>
+        <h1 style={{ color: "var(--text-primary)", marginBottom: "0.75rem" }}>
+          Manage team users
+        </h1>
+        <p
+          style={{
+            color: "var(--text-secondary)",
+            marginTop: 0,
+            marginBottom: "1.5rem",
+            fontSize: "0.95rem",
+          }}
+        >
+          Invite new users to CoolSync or remove existing access. Filter by building to manage access per location.
+        </p>
+
+        {/* Building selector */}
+        <div style={{ marginBottom: "1.25rem" }}>
+          <label className="user-form-label" style={{ display: "block", marginBottom: "0.4rem" }}>
+            Filter by building
+          </label>
+          <select
+            className="table-filter-select"
+            style={{ minWidth: 240 }}
+            value={selectedBuildingId}
+            onChange={(e) => setSelectedBuildingId(e.target.value)}
           >
-            Invite new users to CoolSync or remove existing access.
-          </p>
-          <button
-            className="inventory-button"
-            onClick={() => setShowAddModal(true)}
+            <option value="all">All buildings</option>
+            {buildings.map((b) => (
+              <option key={b.buildingId} value={b.buildingId}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+          {selectedBuildingId !== "all" && selectedBuilding && (
+            <span style={{ marginLeft: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+              {selectedBuilding.address}
+            </span>
+          )}
+        </div>
+
+        <div className="table-toolbar">
+          <input
+            className="table-search"
+            type="text"
+            placeholder="Search by name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            className="table-filter-select"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
           >
+            <option value="all">All roles</option>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+          <button className="inventory-button" onClick={() => setShowAddModal(true)}>
             <span>+</span> Add new user
           </button>
-          <div className="inventory-list" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-            {users.map((user) => (
-              <div className="inventory-item" key={user.id}>
-                <div>
-                  <h1 className="inventory-title">
-                    {user.fullName || user.email}
-                  </h1>
-                  <p className="inventory-subtitle">{user.email}</p>
-                  <p className="inventory-subtitle" style={{ marginTop: "0.2rem" }}>
-                    Role: {user.role}
-                  </p>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <button
-                    className="user-action-btn"
-                    onClick={() => setEditingUser(user)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="user-action-btn user-action-btn--danger"
-                    onClick={() => setDeletingUser(user)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
+
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort("fullName")}>Name <SortIcon col="fullName" /></th>
+                <th onClick={() => handleSort("email")}>Email <SortIcon col="email" /></th>
+                <th onClick={() => handleSort("role")}>Role <SortIcon col="role" /></th>
+                <th>Building</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                    {search || roleFilter !== "all" || selectedBuildingId !== "all"
+                      ? "No users match your filters."
+                      : "No users yet."}
+                  </td>
+                </tr>
+              )}
+              {filtered.map((user) => {
+                const building = buildings.find((b) => b.buildingId === user.buildingId);
+                return (
+                  <tr key={user.id} className="data-table-row">
+                    <td className="td-primary">{user.fullName || <span className="td-empty">—</span>}</td>
+                    <td className="td-mono">{user.email}</td>
+                    <td><span className="role-badge">{user.role}</span></td>
+                    <td>
+                      {building
+                        ? building.name
+                        : user.buildingId === null
+                        ? <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>All buildings</span>
+                        : <span className="td-empty">—</span>}
+                    </td>
+                    <td>
+                      <div className="user-row-actions">
+                        <button
+                          className="user-action-btn"
+                          onClick={(e) => { e.stopPropagation(); setEditingUser(user); }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="user-action-btn user-action-btn--danger"
+                          onClick={(e) => { e.stopPropagation(); setDeletingUser(user); }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="table-count">{filtered.length} of {users.length} user{users.length !== 1 ? "s" : ""}</p>
+      </div>
 
       {showAddModal && (
         <UserFormModal
           title="Add new user"
+          buildings={buildings}
           onSave={handleAdd}
           onClose={() => setShowAddModal(false)}
           showPassword
@@ -111,6 +248,7 @@ export default function UsersPage() {
         <UserFormModal
           title="Edit user"
           initial={editingUser}
+          buildings={buildings}
           onSave={handleEdit}
           onClose={() => setEditingUser(null)}
         />
@@ -176,12 +314,13 @@ export default function UsersPage() {
   );
 }
 
-function UserFormModal({ title, initial = {}, onSave, onClose, showPassword }) {
+function UserFormModal({ title, initial = {}, buildings = [], onSave, onClose, showPassword }) {
   const [form, setForm] = useState({
     fullName: initial.fullName || "",
     email: initial.email || "",
     password: "",
     role: initial.role || "User",
+    buildingId: initial.buildingId ?? "",
   });
   const [error, setError] = useState(null);
 
@@ -192,7 +331,11 @@ function UserFormModal({ title, initial = {}, onSave, onClose, showPassword }) {
     e.preventDefault();
     setError(null);
     try {
-      await onSave(form);
+      const payload = {
+        ...form,
+        buildingId: form.buildingId !== "" ? Number(form.buildingId) : null,
+      };
+      await onSave(payload);
     } catch (err) {
       setError("Something went wrong. Please try again.");
     }
@@ -260,6 +403,23 @@ function UserFormModal({ title, initial = {}, onSave, onClose, showPassword }) {
               {ROLES.map((r) => (
                 <option key={r} value={r}>
                   {r}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="user-form-label">Building access</label>
+            <select
+              className="inventory-modal-input"
+              style={{ marginBottom: 0 }}
+              name="buildingId"
+              value={form.buildingId}
+              onChange={handleChange}
+            >
+              <option value="">All buildings (SuperAdmin)</option>
+              {buildings.map((b) => (
+                <option key={b.buildingId} value={b.buildingId}>
+                  {b.name}
                 </option>
               ))}
             </select>

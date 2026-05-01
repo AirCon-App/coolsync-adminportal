@@ -564,6 +564,17 @@ a {
   transform: translateY(1px) scale(0.99);
 }
 
+.inventory-button--secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-strong);
+}
+
+.inventory-button--secondary:hover {
+  background: var(--accent-hover);
+  opacity: 1;
+}
+
 .inventory-list {
   width: 100%;
   display: grid;
@@ -614,6 +625,170 @@ a {
 .inventory-arrow {
   font-size: 1.2rem;
   color: var(--text-muted);
+}
+
+/* ============================================================
+   Data table + toolbar
+   ============================================================ */
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.table-search {
+  flex: 1;
+  min-width: 200px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.14s ease;
+}
+
+.table-search::placeholder {
+  color: var(--text-muted);
+}
+
+.table-search:focus {
+  border-color: var(--border-strong);
+}
+
+.table-filter-select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.14s ease;
+}
+
+.table-filter-select:focus {
+  border-color: var(--border-strong);
+}
+
+.data-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table thead tr {
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+  text-align: left;
+  padding: 0.65rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.data-table th:last-child {
+  cursor: default;
+  width: 32px;
+}
+
+.data-table th:hover {
+  color: var(--text-primary);
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.data-table-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.data-table-row:hover {
+  background: var(--bg-overlay);
+}
+
+.data-table td {
+  padding: 0.75rem 1rem;
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.td-primary {
+  color: var(--text-primary) !important;
+  font-weight: 500;
+}
+
+.td-mono {
+  font-family: "SF Mono", "Fira Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.td-empty {
+  color: var(--text-muted);
+}
+
+.td-arrow {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  text-align: right;
+  padding-right: 1rem !important;
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 0.3em;
+  font-size: 0.75em;
+  opacity: 0.4;
+}
+
+.sort-icon.active {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
+.stock-badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table-count {
+  align-self: flex-end;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* ============================================================
@@ -676,10 +851,27 @@ a {
   box-shadow: 0 0 0 2px var(--accent-sub);
 }
 
+.inventory-modal-input[readonly] {
+  background-color: var(--bg-overlay);
+  color: var(--text-secondary);
+  cursor: default;
+  border-color: var(--border);
+}
+
+.inventory-modal-input[readonly]:focus {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
 .inventory-modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.inventory-modal-actions .button {
+  width: auto;
+  margin-top: 0;
 }
 
 .inventory-modal-cancel {
@@ -723,6 +915,22 @@ a {
   border-color: var(--danger);
   color: var(--danger);
   background: var(--danger-sub);
+}
+
+.user-row-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 0.2em 0.65em;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--accent-sub);
+  color: var(--text-secondary);
 }
 
 .user-form-label {

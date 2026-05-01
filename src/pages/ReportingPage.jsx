@@ -210,17 +210,18 @@ export default function ReportingPage() {
       const unitName = handler?.name ?? "Unknown Unit";
       const filtersName = handler?.filtersName ?? "—";
 
-      if (wo.completedDate) {
-        const completedAt = new Date(wo.completedDate);
+      if (wo.completedDate || wo.activityDate) {
+        const serviceDate = wo.activityDate ?? wo.completedDate;
+        const completedAt = new Date(serviceDate);
         if (completedAt >= thirtyDaysAgo) {
-          const earlyLate = formatDaysEarlyLate(wo.dueDate, wo.completedDate);
-          const earlyLateColor = daysEarlyLateColor(wo.dueDate, wo.completedDate);
+          const earlyLate = formatDaysEarlyLate(wo.dueDate, serviceDate);
+          const earlyLateColor = daysEarlyLateColor(wo.dueDate, serviceDate);
           completedRows.push({
             unit: unitName,
             filterType: filtersName,
             filterSize: filtersName,
-            qty: wo.count ?? handler?.quantity ?? "—",
-            dateChanged: formatDate(wo.completedDate),
+            qty: wo.count || handler?.quantity || "—",
+            dateChanged: formatDate(serviceDate),
             daysEarlyLate: earlyLate,
             daysEarlyLateColor: earlyLateColor,
             technician: userMap[wo.technicianId] ?? "Unassigned",
@@ -241,8 +242,9 @@ export default function ReportingPage() {
     });
 
     const totalReplaced = completedRows.reduce((sum, r) => sum + (typeof r.qty === "number" ? r.qty : 0), 0);
-    const onTimeCount = completedRows.filter((r) => r.daysEarlyLate !== "—" && !r.daysEarlyLate.includes("late")).length;
-    const pctOnTime = completedRows.length > 0 ? Math.round((onTimeCount / completedRows.length) * 100) : 100;
+    const scheduledRows = completedRows.filter((r) => r.daysEarlyLate !== "—");
+    const onTimeCount = scheduledRows.filter((r) => !r.daysEarlyLate.includes("late")).length;
+    const pctOnTime = scheduledRows.length > 0 ? Math.round((onTimeCount / scheduledRows.length) * 100) : 100;
 
     return {
       completedRows,
@@ -274,8 +276,9 @@ export default function ReportingPage() {
     // Usage last 30 days — group by itemId
     const usageMap = {};
     workOrders.forEach((wo) => {
-      if (!wo.completedDate) return;
-      if (new Date(wo.completedDate) < thirtyDaysAgo) return;
+      const serviceDate = wo.activityDate ?? wo.completedDate;
+      if (!serviceDate) return;
+      if (new Date(serviceDate) < thirtyDaysAgo) return;
       const name = itemNameMap[wo.itemId];
       if (!name) return;
       if (!usageMap[wo.itemId]) usageMap[wo.itemId] = { name, qtyUsed: 0, locations: new Set() };

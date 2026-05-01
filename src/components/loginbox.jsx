@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../data/api";
+import CoolSyncLogo from "./CoolSyncLogo";
 
 export default function LoginBox() {
   const [username, setUsername] = useState("");
@@ -36,7 +37,10 @@ export default function LoginBox() {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1 className="login-title">CoolSync Admin Management</h1>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.5rem" }}>
+          <CoolSyncLogo size={48} />
+        </div>
+        <h1 className="login-title">CoolSync</h1>
         <form onSubmit={handleLogin}>
           <p className="login-text">Username</p>
           <input

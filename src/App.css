@@ -239,10 +239,7 @@ a {
   min-width: 0;
 }
 
-.sidebar-logo img {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
+.sidebar-logo svg {
   flex-shrink: 0;
 }
 
@@ -377,51 +374,151 @@ a {
 }
 
 /* ============================================================
-   Home / Dashboard
+   Dashboard / Home
    ============================================================ */
 
-.home-container {
+.dashboard-container {
   width: 100%;
   max-width: 960px;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 2rem;
 }
 
-.link-wrapper {
-  display: block;
-}
-
-.user-info {
-  background: var(--bg-raised);
-  color: var(--text-primary);
-  width: 100%;
-  min-height: 80px;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border);
+.dashboard-header {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.1rem 1.5rem;
-  transition: border-color 0.14s ease, background 0.14s ease;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
-.link-wrapper:hover .user-info {
+.dashboard-title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dashboard-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.dashboard-section-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* ── Stat cards ── */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 0.75rem;
+}
+
+.stat-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  transition: border-color 0.14s ease, background 0.14s ease;
+  height: 100%;
+}
+
+.stat-card-link:hover .stat-card {
   border-color: var(--border-strong);
   background: var(--bg-overlay);
 }
 
-.user-info h1 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 500;
+.stat-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.5rem;
+  background: var(--accent-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  flex-shrink: 0;
 }
 
-.home-arrow {
-  font-size: 1.4rem;
-  margin-left: 1rem;
+.stat-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.stat-card-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
   color: var(--text-muted);
+}
+
+.stat-card-value {
+  margin: 0;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.stat-card-sub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+/* ── Quick action cards ── */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.quick-action-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1.1rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+
+.quick-action-card:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: var(--bg-overlay);
+}
+
+.quick-action-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 /* ============================================================

@@ -10,7 +10,7 @@ import {
 } from "react-icons/sl";
 import { TbAirConditioning, TbSun, TbMoon } from "react-icons/tb";
 import { useTheme } from "../context/ThemeContext";
-import logo from "../assets/coolsync white no text.png";
+import CoolSyncLogo from "./CoolSyncLogo";
 
 const NAV_ITEMS = [
   { to: "/home", label: "Dashboard", icon: SlGrid },
@@ -29,7 +29,7 @@ export default function Sidebar() {
     <aside className={`sidebar${collapsed ? " sidebar--collapsed" : ""}`}>
       <div className="sidebar-header">
         <NavLink to="/home" className="sidebar-logo">
-          <img src={logo} alt="CoolSync" />
+          <CoolSyncLogo size={26} />
           {!collapsed && <span className="sidebar-brand">CoolSync</span>}
         </NavLink>
         <button

@@ -23,11 +23,11 @@ function formatDaysEarlyLate(dueDate, completedDate) {
 }
 
 function daysEarlyLateColor(dueDate, completedDate) {
-  if (!dueDate || !completedDate) return "#9ca3af";
+  if (!dueDate || !completedDate) return "var(--text-muted)";
   const diff = Math.round(
     (new Date(dueDate) - new Date(completedDate)) / (1000 * 60 * 60 * 24)
   );
-  return diff >= 0 ? "#22c55e" : "#ef4444";
+  return diff >= 0 ? "var(--success)" : "var(--danger)";
 }
 
 const PDF_HEAD_STYLES = { fillColor: [37, 99, 235] };
@@ -39,14 +39,14 @@ const PDF_ALT_ROW = { fillColor: [245, 247, 250] };
 function SectionTable({ title, columns, rows, emptyMessage = "No records in this period." }) {
   return (
     <div style={{ marginBottom: "1.75rem" }}>
-      <p style={{ margin: "0 0 0.5rem", color: "#9ca3af", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+      <p style={{ margin: "0 0 0.5rem", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
         {title}
       </p>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
         <thead>
           <tr>
             {columns.map((col) => (
-              <th key={col.key} style={{ padding: "0.5rem 0.75rem", textAlign: col.align || "left", color: "#6b7280", fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid rgba(148,163,184,0.15)", whiteSpace: "nowrap" }}>
+              <th key={col.key} style={{ padding: "0.5rem 0.75rem", textAlign: col.align || "left", color: "var(--text-muted)", fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>
                 {col.label}
               </th>
             ))}
@@ -55,15 +55,15 @@ function SectionTable({ title, columns, rows, emptyMessage = "No records in this
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} style={{ padding: "0.75rem", color: "#6b7280", fontStyle: "italic", textAlign: "center" }}>
+              <td colSpan={columns.length} style={{ padding: "0.75rem", color: "var(--text-muted)", fontStyle: "italic", textAlign: "center" }}>
                 {emptyMessage}
               </td>
             </tr>
           ) : (
             rows.map((row, i) => (
-              <tr key={i} style={{ background: i % 2 === 1 ? "rgba(148,163,184,0.04)" : "transparent" }}>
+              <tr key={i} style={{ background: i % 2 === 1 ? "var(--bg-subtle)" : "transparent" }}>
                 {columns.map((col) => (
-                  <td key={col.key} style={{ padding: "0.55rem 0.75rem", textAlign: col.align || "left", color: row[`${col.key}Color`] || "#e5e7eb", fontWeight: row[`${col.key}Bold`] ? 700 : 400, borderBottom: "1px solid rgba(148,163,184,0.06)", whiteSpace: col.nowrap ? "nowrap" : "normal" }}>
+                  <td key={col.key} style={{ padding: "0.55rem 0.75rem", textAlign: col.align || "left", color: row[`${col.key}Color`] || "var(--text-primary)", fontWeight: row[`${col.key}Bold`] ? 700 : 400, borderBottom: "1px solid var(--border)", whiteSpace: col.nowrap ? "nowrap" : "normal" }}>
                     {row[col.key] ?? "—"}
                   </td>
                 ))}
@@ -79,12 +79,12 @@ function SectionTable({ title, columns, rows, emptyMessage = "No records in this
 function SummaryList({ title, items }) {
   return (
     <div style={{ marginTop: "0.5rem" }}>
-      <p style={{ margin: "0 0 0.5rem", color: "#9ca3af", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+      <p style={{ margin: "0 0 0.5rem", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
         {title}
       </p>
       <ul style={{ margin: 0, paddingLeft: "1.25rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
         {items.map((item, i) => (
-          <li key={i} style={{ color: "#e5e7eb", fontSize: "0.9rem" }}>{item}</li>
+          <li key={i} style={{ color: "var(--text-primary)", fontSize: "0.9rem" }}>{item}</li>
         ))}
       </ul>
     </div>
@@ -95,14 +95,14 @@ function ReportCard({ title, buildingName, children, onExport }) {
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   return (
     <div className="inventory-item" style={{ flexDirection: "column", alignItems: "stretch", gap: "1.5rem", padding: "1.5rem", marginBottom: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem", borderBottom: "1px solid rgba(148,163,184,0.12)", paddingBottom: "1rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
         <div>
-          <h2 style={{ margin: "0 0 0.2rem", color: "#e5e7eb", fontSize: "1.2rem", fontWeight: 700 }}>{title}</h2>
-          {buildingName && <p style={{ margin: "0 0 0.1rem", color: "#9ca3af", fontSize: "0.9rem" }}>{buildingName}</p>}
-          <p style={{ margin: 0, color: "#6b7280", fontSize: "0.8rem" }}>{today}</p>
+          <h2 style={{ margin: "0 0 0.2rem", color: "var(--text-primary)", fontSize: "1.2rem", fontWeight: 700 }}>{title}</h2>
+          {buildingName && <p style={{ margin: "0 0 0.1rem", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{buildingName}</p>}
+          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.8rem" }}>{today}</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontWeight: 700, color: "#3b82f6", fontSize: "0.95rem", letterSpacing: "0.04em" }}>NJ Filters</span>
+          <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem", letterSpacing: "0.04em" }}>NJ Filters</span>
           <button className="button" onClick={onExport} style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 1rem", fontSize: "0.85rem" }}>
             <SlPrinter /> Export PDF
           </button>
@@ -268,7 +268,7 @@ export default function ReportingPage() {
       onHand: inv.quantity,
       minLevel: "—",
       status: inv.quantity > 0 ? "OK" : "Out of Stock",
-      statusColor: inv.quantity > 0 ? "#22c55e" : "#ef4444",
+      statusColor: inv.quantity > 0 ? "var(--success)" : "var(--danger)",
     }));
 
     // Usage last 30 days — group by itemId
@@ -458,7 +458,7 @@ export default function ReportingPage() {
   if (loading) {
     return (
       <PageShell>
-        <p style={{ color: "#9ca3af", fontStyle: "italic" }}>Loading report data...</p>
+        <p style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>Loading report data...</p>
       </PageShell>
     );
   }
@@ -470,11 +470,11 @@ export default function ReportingPage() {
           {/* Page header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
             <div>
-              <h1 style={{ color: "#e5e7eb", margin: "0 0 0.25rem" }}>Reports</h1>
-              <p style={{ color: "#9ca3af", margin: 0, fontSize: "0.95rem" }}>Filter activity and inventory reporting by property.</p>
+              <h1 style={{ color: "var(--text-primary)", margin: "0 0 0.25rem" }}>Reports</h1>
+              <p style={{ color: "var(--text-secondary)", margin: 0, fontSize: "0.95rem" }}>Filter activity and inventory reporting by property.</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <label style={{ color: "#9ca3af", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Property</label>
+              <label style={{ color: "var(--text-secondary)", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Property</label>
               <select
                 className="inventory-modal-input"
                 value={selectedBuilding}
@@ -491,9 +491,9 @@ export default function ReportingPage() {
 
           {/* Error state */}
           {error && (
-            <div className="inventory-item" style={{ flexDirection: "column", borderColor: "rgba(239,68,68,0.4)", marginBottom: "1.5rem" }}>
-              <p style={{ color: "#ef4444", margin: "0 0 0.5rem", fontWeight: 600 }}>Error loading data</p>
-              <p style={{ color: "#9ca3af", margin: "0 0 0.75rem", fontSize: "0.9rem" }}>{error}</p>
+            <div className="inventory-item" style={{ flexDirection: "column", borderColor: "var(--danger)", marginBottom: "1.5rem" }}>
+              <p style={{ color: "var(--danger)", margin: "0 0 0.5rem", fontWeight: 600 }}>Error loading data</p>
+              <p style={{ color: "var(--text-secondary)", margin: "0 0 0.75rem", fontSize: "0.9rem" }}>{error}</p>
               <button className="button" onClick={() => setSelectedBuilding((s) => s)} style={{ alignSelf: "flex-start", padding: "0.4rem 1rem", fontSize: "0.85rem" }}>
                 Retry
               </button>
@@ -501,7 +501,7 @@ export default function ReportingPage() {
           )}
 
           {buildingLoading ? (
-            <p style={{ color: "#9ca3af", fontStyle: "italic" }}>Loading building data...</p>
+            <p style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>Loading building data...</p>
           ) : (
             <>
               {/* ── Filter Activity Report ── */}

@@ -5,12 +5,12 @@ export default function UserPage() {
   return (
     <PageShell>
       <div className="inventory-container">
-        <h1 style={{ color: "#e5e7eb", marginBottom: "0.75rem" }}>
+        <h1 style={{ color: "var(--text-primary)", marginBottom: "0.75rem" }}>
           Manage your account
         </h1>
         <p
           style={{
-            color: "#9ca3af",
+            color: "var(--text-secondary)",
             marginTop: 0,
             marginBottom: "1.5rem",
             fontSize: "0.95rem",

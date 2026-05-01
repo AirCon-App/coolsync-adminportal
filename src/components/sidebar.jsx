@@ -8,7 +8,8 @@ import {
   SlChart,
   SlLogin,
 } from "react-icons/sl";
-import { TbAirConditioning } from "react-icons/tb";
+import { TbAirConditioning, TbSun, TbMoon } from "react-icons/tb";
+import { useTheme } from "../context/ThemeContext";
 import logo from "../assets/coolsync white no text.png";
 
 const NAV_ITEMS = [
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const { theme, toggle } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -65,6 +67,19 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
+        <button
+          className="sidebar-nav-item sidebar-theme-btn"
+          onClick={toggle}
+          aria-label="Toggle theme"
+        >
+          {theme === "dark"
+            ? <TbSun className="sidebar-nav-icon" />
+            : <TbMoon className="sidebar-nav-icon" />
+          }
+          {!collapsed && (
+            <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+          )}
+        </button>
         <NavLink
           to="/usermanagement"
           className={({ isActive }) =>

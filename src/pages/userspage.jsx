@@ -48,12 +48,12 @@ export default function UsersPage() {
   return (
     <PageShell>
       <div className="inventory-container">
-          <h1 style={{ color: "#e5e7eb", marginBottom: "0.75rem" }}>
+          <h1 style={{ color: "var(--text-primary)", marginBottom: "0.75rem" }}>
             Manage team users
           </h1>
           <p
             style={{
-              color: "#9ca3af",
+              color: "var(--text-secondary)",
               marginTop: 0,
               marginBottom: "1.5rem",
               fontSize: "0.95rem",
@@ -125,7 +125,7 @@ export default function UsersPage() {
             <h2>Remove user</h2>
             <p>
               Are you sure you want to remove{" "}
-              <span style={{ color: "#e5e7eb", fontWeight: 500 }}>
+              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                 {deletingUser.fullName || deletingUser.email}
               </span>
               ? This cannot be undone.
@@ -150,7 +150,7 @@ export default function UsersPage() {
               </select>
             </div>
             {deleteError && (
-              <p style={{ color: "#ef4444", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
+              <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
                 {deleteError}
               </p>
             )}
@@ -163,7 +163,7 @@ export default function UsersPage() {
               </button>
               <button
                 className="button"
-                style={{ background: "linear-gradient(135deg,#ef4444,#b91c1c)" }}
+                style={{ background: "var(--danger)" }}
                 onClick={handleDelete}
               >
                 Remove
@@ -265,7 +265,7 @@ function UserFormModal({ title, initial = {}, onSave, onClose, showPassword }) {
             </select>
           </div>
           {error && (
-            <p style={{ color: "#ef4444", fontSize: "0.85rem", margin: 0 }}>
+            <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>
               {error}
             </p>
           )}

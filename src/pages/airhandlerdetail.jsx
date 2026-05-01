@@ -20,7 +20,7 @@ export default function AirHandlerDetailPage() {
   if (loading) {
     return (
       <PageShell>
-        <p style={{ color: "#9ca3af" }}>Loading...</p>
+        <p style={{ color: "var(--text-secondary)" }}>Loading...</p>
       </PageShell>
     );
   }
@@ -28,7 +28,7 @@ export default function AirHandlerDetailPage() {
   if (!handler) {
     return (
       <PageShell>
-        <p style={{ color: "#ef4444" }}>Air handler not found.</p>
+        <p style={{ color: "var(--danger)" }}>Air handler not found.</p>
       </PageShell>
     );
   }
@@ -41,7 +41,7 @@ export default function AirHandlerDetailPage() {
           style={{
             background: "none",
             border: "none",
-            color: "#9ca3af",
+            color: "var(--text-secondary)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -55,9 +55,9 @@ export default function AirHandlerDetailPage() {
           <SlArrowLeft /> Back to air handlers
         </button>
 
-        <h1 style={{ color: "#e5e7eb", marginBottom: "0.25rem" }}>{handler.name}</h1>
+        <h1 style={{ color: "var(--text-primary)", marginBottom: "0.25rem" }}>{handler.name}</h1>
         {handler.description && (
-          <p style={{ color: "#9ca3af", marginTop: 0, marginBottom: "1.5rem", fontSize: "0.95rem" }}>
+          <p style={{ color: "var(--text-secondary)", marginTop: 0, marginBottom: "1.5rem", fontSize: "0.95rem" }}>
             {handler.description}
           </p>
         )}
@@ -97,9 +97,9 @@ export default function AirHandlerDetailPage() {
           )}
         </div>
 
-        <h2 style={{ color: "#e5e7eb", marginBottom: "1rem" }}>Work orders</h2>
+        <h2 style={{ color: "var(--text-primary)", marginBottom: "1rem" }}>Work orders</h2>
         {handler.workOrders?.length === 0 ? (
-          <p style={{ color: "#9ca3af", fontSize: "0.95rem" }}>No work orders for this air handler.</p>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>No work orders for this air handler.</p>
         ) : (
           <div className="inventory-list">
             {handler.workOrders?.map((wo) => (

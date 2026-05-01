@@ -53,11 +53,11 @@ export default function InventoryButton(props) {
           >
             <h2>Update quantity</h2>
             <p>
-              <span style={{ fontWeight: 500, color: "#e5e7eb" }}>
+              <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>
                 {props.title}
               </span>
               <br />
-              <span style={{ color: "#9ca3af" }}>
+              <span style={{ color: "var(--text-secondary)" }}>
                 Adjust the quantity for this inventory item.
               </span>
             </p>

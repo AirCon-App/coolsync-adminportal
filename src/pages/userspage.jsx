@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/navbar";
+import PageShell from "../components/PageShell";
 import api from "../data/api";
 
 const ROLES = ["User", "BuildingAdmin", "SuperAdmin"];
@@ -46,10 +46,8 @@ export default function UsersPage() {
   };
 
   return (
-    <>
-      <Navbar />
-      <div className="body-container">
-        <div className="inventory-container">
+    <PageShell>
+      <div className="inventory-container">
           <h1 style={{ color: "#e5e7eb", marginBottom: "0.75rem" }}>
             Manage team users
           </h1>
@@ -99,7 +97,6 @@ export default function UsersPage() {
             ))}
           </div>
         </div>
-      </div>
 
       {showAddModal && (
         <UserFormModal
@@ -175,7 +172,7 @@ export default function UsersPage() {
           </div>
         </div>
       )}
-    </>
+    </PageShell>
   );
 }
 

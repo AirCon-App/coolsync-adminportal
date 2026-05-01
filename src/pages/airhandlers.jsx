@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/navbar";
+import PageShell from "../components/PageShell";
 import AirHandlerCard from "../components/airhandlercard";
 import api from "../data/api";
 
@@ -53,10 +53,8 @@ export default function AirHandlersPage() {
   };
 
   return (
-    <>
-      <Navbar />
-      <div className="body-container">
-        <div className="inventory-container">
+    <PageShell>
+      <div className="inventory-container">
           <h1 style={{ color: "#e5e7eb", marginBottom: "0.75rem" }}>
             Manage your air handlers
           </h1>
@@ -84,7 +82,6 @@ export default function AirHandlersPage() {
             ))}
           </div>
         </div>
-      </div>
 
       {showAddModal && (
         <div
@@ -194,6 +191,6 @@ export default function AirHandlersPage() {
           </div>
         </div>
       )}
-    </>
+    </PageShell>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import Navbar from "../components/navbar";
+import PageShell from "../components/PageShell";
 import api from "../data/api";
 import { SlPrinter } from "react-icons/sl";
 import jsPDF from "jspdf";
@@ -457,20 +457,15 @@ export default function ReportingPage() {
 
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <div className="body-container">
-          <p style={{ color: "#9ca3af", fontStyle: "italic" }}>Loading report data...</p>
-        </div>
-      </>
+      <PageShell>
+        <p style={{ color: "#9ca3af", fontStyle: "italic" }}>Loading report data...</p>
+      </PageShell>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <div className="body-container">
-        <div style={{ width: "100%", maxWidth: 960 }}>
+    <PageShell>
+      <div style={{ width: "100%", maxWidth: 960 }}>
 
           {/* Page header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
@@ -584,7 +579,6 @@ export default function ReportingPage() {
           )}
 
         </div>
-      </div>
-    </>
+    </PageShell>
   );
 }

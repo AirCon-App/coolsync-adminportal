@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/navbar";
+import PageShell from "../components/PageShell";
 import InventoryButton from "../components/inventorybutton";
 import api from "../data/api";
 
@@ -49,39 +49,36 @@ export default function InventoryPage() {
   };
 
   return (
-    <>
-      <Navbar />
-      <div className="body-container">
-        <div className="inventory-container">
-          <h1 style={{ color: "#e5e7eb", marginBottom: "0.75rem" }}>
-            Manage inventory
-          </h1>
-          <p
-            style={{
-              color: "#9ca3af",
-              marginTop: 0,
-              marginBottom: "1.5rem",
-              fontSize: "0.95rem",
-            }}
-          >
-            View and manage inventory items for this building.
-          </p>
-          <button className="inventory-button" onClick={handleOpenAdd}>
-            <span>+</span> Add Inventory Item
-          </button>
-          <div className="inventory-list">
-            {data.map((inventoryItem) => (
-              <InventoryButton
-                key={inventoryItem.itemNumber}
-                title={inventoryItem.catalogItem.name}
-                quantity={inventoryItem.quantity}
-                itemNumber={inventoryItem.itemNumber}
-                catalogItemId={inventoryItem.catalogItem.catalogItemId}
-                buildingId={inventoryItem.buildingId}
-                onQuantityUpdate={updateQuantity}
-              />
-            ))}
-          </div>
+    <PageShell>
+      <div className="inventory-container">
+        <h1 style={{ color: "#e5e7eb", marginBottom: "0.75rem" }}>
+          Manage inventory
+        </h1>
+        <p
+          style={{
+            color: "#9ca3af",
+            marginTop: 0,
+            marginBottom: "1.5rem",
+            fontSize: "0.95rem",
+          }}
+        >
+          View and manage inventory items for this building.
+        </p>
+        <button className="inventory-button" onClick={handleOpenAdd}>
+          <span>+</span> Add Inventory Item
+        </button>
+        <div className="inventory-list">
+          {data.map((inventoryItem) => (
+            <InventoryButton
+              key={inventoryItem.itemNumber}
+              title={inventoryItem.catalogItem.name}
+              quantity={inventoryItem.quantity}
+              itemNumber={inventoryItem.itemNumber}
+              catalogItemId={inventoryItem.catalogItem.catalogItemId}
+              buildingId={inventoryItem.buildingId}
+              onQuantityUpdate={updateQuantity}
+            />
+          ))}
         </div>
       </div>
 
@@ -144,6 +141,6 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
-    </>
+    </PageShell>
   );
 }

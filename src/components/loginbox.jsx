@@ -2,15 +2,17 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../data/api";
 import CoolSyncLogo from "./CoolSyncLogo";
+import { useAuth } from "../context/AuthContext";
 
 export default function LoginBox() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (e) => {
-    e.preventDefault(); // ✅ prevent page reload
+    e.preventDefault();
     setError("");
 
     try {
@@ -19,17 +21,13 @@ export default function LoginBox() {
         password,
       });
 
-      // Optional: store token
       const token = response.data?.token;
       if (token) {
-        localStorage.setItem("token", token);
+        login(token);
       }
 
-      // ✅ Navigate to homepage
       navigate("/home");
     } catch (err) {
-      console.log(err);
-      console.log("ERROR RESPONSE:", err.response?.data);
       setError("Invalid username or password");
     }
   };

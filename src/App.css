@@ -284,6 +284,111 @@ a {
   text-overflow: ellipsis;
 }
 
+/* ── Building Switcher ── */
+.building-switcher {
+  position: relative;
+  padding: 0 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--sidebar-border);
+  margin-bottom: 0.25rem;
+}
+
+.building-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.building-switcher-btn:hover,
+.building-switcher-btn--open {
+  background: var(--sidebar-hover);
+  color: var(--text-primary);
+}
+
+.building-switcher-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.building-switcher-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.building-switcher-chevron {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+.building-switcher-dropdown {
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  top: calc(100% - 0.25rem);
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  padding: 0.3rem;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+.building-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.45rem 0.6rem;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.building-switcher-option:hover {
+  background: var(--sidebar-hover);
+  color: var(--text-primary);
+}
+
+.building-switcher-option--active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.building-switcher-option--manage {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.building-switcher-check {
+  width: 14px;
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.building-switcher-divider {
+  height: 1px;
+  background: var(--sidebar-border);
+  margin: 0.3rem 0;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;

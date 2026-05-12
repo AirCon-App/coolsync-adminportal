@@ -4,6 +4,7 @@ import api from "../data/api";
 import { SlPrinter } from "react-icons/sl";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useBuilding } from "../context/BuildingContext";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -116,7 +117,7 @@ function ReportCard({ title, buildingName, children, onExport }) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function ReportingPage() {
-  const [buildings, setBuildings] = useState([]);
+  const { buildings, activeBuilding } = useBuilding();
   const [selectedBuilding, setSelectedBuilding] = useState("");
   const [airHandlers, setAirHandlers] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
@@ -127,21 +128,23 @@ export default function ReportingPage() {
   const [buildingLoading, setBuildingLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Phase 1: fetch buildings, users, and full catalog once on mount
+  // Sync selectedBuilding with activeBuilding from context
+  useEffect(() => {
+    if (activeBuilding && !selectedBuilding) {
+      setSelectedBuilding(String(activeBuilding.buildingId));
+    }
+  }, [activeBuilding]);
+
+  // Fetch users and catalog once on mount
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [bRes, uRes, catRes] = await Promise.all([
-          api.get("/Buildings"),
+        const [uRes, catRes] = await Promise.all([
           api.get("/Auth/users"),
           api.get("/ItemCatalog"),
         ]);
-        setBuildings(bRes.data);
         setUsers(uRes.data);
         setCatalogItems(catRes.data);
-        if (bRes.data.length > 0) {
-          setSelectedBuilding(String(bRes.data[0].buildingId));
-        }
       } catch (err) {
         setError("Failed to load initial data. " + (err.message || ""));
       } finally {

@@ -3,6 +3,7 @@ import PageShell from "../components/PageShell";
 import { Link } from "react-router-dom";
 import { TbAirConditioning, TbClipboardList, TbPackage, TbChecks } from "react-icons/tb";
 import api from "../data/api";
+import { useBuilding } from "../context/BuildingContext";
 
 function StatCard({ icon: Icon, label, value, sub, to }) {
   const inner = (
@@ -24,14 +25,18 @@ function StatCard({ icon: Icon, label, value, sub, to }) {
 export default function HomePage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { activeBuilding } = useBuilding();
 
   useEffect(() => {
+    if (!activeBuilding) return;
     const load = async () => {
+      setLoading(true);
       try {
+        const bid = activeBuilding.buildingId;
         const [ahRes, woRes, invRes] = await Promise.all([
-          api.get("/AirHandlers?buildingId=1"),
-          api.get("/WorkOrders?buildingId=1"),
-          api.get("/Inventory?buildingId=1"),
+          api.get(`/AirHandlers?buildingId=${bid}`),
+          api.get(`/WorkOrders?buildingId=${bid}`),
+          api.get(`/Inventory?buildingId=${bid}`),
         ]);
 
         const airHandlers = ahRes.data ?? [];
@@ -63,7 +68,7 @@ export default function HomePage() {
       }
     };
     load();
-  }, []);
+  }, [activeBuilding]);
 
   const fmt = (v) => (v === null || v === undefined ? "—" : String(v));
 
@@ -72,7 +77,7 @@ export default function HomePage() {
       <div className="dashboard-container">
         <div className="dashboard-header">
           <h1 className="dashboard-title">Dashboard</h1>
-          <p className="dashboard-sub">Caesar's Superdome — overview</p>
+          <p className="dashboard-sub">{activeBuilding?.name ?? "—"} — overview</p>
         </div>
 
         <div className="stat-grid">

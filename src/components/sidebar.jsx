@@ -8,11 +8,13 @@ import {
   SlChart,
   SlLogin,
 } from "react-icons/sl";
-import { TbAirConditioning, TbSun, TbMoon } from "react-icons/tb";
+import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper } from "react-icons/tb";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import CoolSyncLogo from "./CoolSyncLogo";
+import BuildingSwitcher from "./BuildingSwitcher";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { to: "/home", label: "Dashboard", icon: SlGrid },
   { to: "/airhandlers", label: "Air Handlers", icon: TbAirConditioning },
   { to: "/inventory", label: "Inventory", icon: SlDrawer },
@@ -23,7 +25,18 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
+  const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  const isSuperAdmin = user?.isSuperAdmin || user?.role === "SuperAdmin";
+  const navItems = isSuperAdmin
+    ? [...BASE_NAV_ITEMS, { to: "/buildings", label: "Buildings", icon: TbBuildingSkyscraper }]
+    : BASE_NAV_ITEMS;
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <aside className={`sidebar${collapsed ? " sidebar--collapsed" : ""}`}>
@@ -47,12 +60,10 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {!collapsed && (
-        <p className="sidebar-tenant">Caesar's Superdome</p>
-      )}
+      <BuildingSwitcher collapsed={collapsed} />
 
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -91,7 +102,7 @@ export default function Sidebar() {
         </NavLink>
         <button
           className="sidebar-nav-item sidebar-logout-btn"
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
         >
           <SlLogin className="sidebar-nav-icon" />
           {!collapsed && <span>Sign out</span>}

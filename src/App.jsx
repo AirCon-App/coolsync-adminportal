@@ -1,6 +1,9 @@
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
+import { AuthProvider } from "./context/AuthContext";
+import { BuildingProvider } from "./context/BuildingContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import LoginPage from "./pages/loginpage";
 import HomePage from "./pages/homepage";
 import UserPage from "./pages/userpage";
@@ -9,22 +12,28 @@ import UsersPage from "./pages/userspage";
 import AirHandlersPage from "./pages/airhandlers";
 import AirHandlerDetailPage from "./pages/airhandlerdetail";
 import ReportingPage from "./pages/ReportingPage";
+import BuildingsPage from "./pages/BuildingsPage";
 
 function App() {
   return (
     <ThemeProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/usermanagement" element={<UserPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/airhandlers" element={<AirHandlersPage />} />
-          <Route path="/airhandlers/:guid" element={<AirHandlerDetailPage />} />
-          <Route path="/reports" element={<ReportingPage />} />
-        </Routes>
-      </Router>
+      <AuthProvider>
+        <BuildingProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<LoginPage />} />
+              <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+              <Route path="/usermanagement" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
+              <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+              <Route path="/airhandlers" element={<ProtectedRoute><AirHandlersPage /></ProtectedRoute>} />
+              <Route path="/airhandlers/:guid" element={<ProtectedRoute><AirHandlerDetailPage /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute><ReportingPage /></ProtectedRoute>} />
+              <Route path="/buildings" element={<ProtectedRoute requireRole="SuperAdmin"><BuildingsPage /></ProtectedRoute>} />
+            </Routes>
+          </Router>
+        </BuildingProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

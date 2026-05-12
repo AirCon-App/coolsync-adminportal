@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { useBuilding } from "../context/BuildingContext";
 
 const EMPTY_FORM = {
   name: "",
@@ -28,10 +29,12 @@ export default function AirHandlersPage() {
   const [sortDir, setSortDir] = useState("asc");
   const [catalogItems, setCatalogItems] = useState([]);
   const navigate = useNavigate();
+  const { activeBuilding } = useBuilding();
 
   useEffect(() => {
-    api.get("/AirHandlers?buildingId=1").then((res) => setData(res.data));
-  }, []);
+    if (!activeBuilding) return;
+    api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`).then((res) => setData(res.data));
+  }, [activeBuilding]);
 
   const handleOpenAdd = () => {
     setForm(EMPTY_FORM);
@@ -58,11 +61,11 @@ export default function AirHandlersPage() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      const res = await api.post("/AirHandlers/upload?buildingId=1", formData, {
+      const res = await api.post(`/AirHandlers/upload?buildingId=${activeBuilding.buildingId}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadStatus(res.data.message || "Upload successful.");
-      const updated = await api.get("/AirHandlers?buildingId=1");
+      const updated = await api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`);
       setData(updated.data);
     } catch (err) {
       setUploadError(err.response?.data || "Upload failed.");
@@ -93,13 +96,13 @@ export default function AirHandlersPage() {
       await api.post("/AirHandlers", {
         name: form.name,
         description: form.description,
-        buildingId: 1,
+        buildingId: activeBuilding.buildingId,
         filtersName: form.filtersName || null,
         quantity: form.quantity !== "" ? Number(form.quantity) : null,
         scheduleChangeInterval: form.scheduleChangeInterval || null,
         sku: form.sku || null,
       });
-      const res = await api.get("/AirHandlers?buildingId=1");
+      const res = await api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`);
       setData(res.data);
       setShowAddModal(false);
     } catch (err) {

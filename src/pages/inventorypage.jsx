@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { useBuilding } from "../context/BuildingContext";
 
 const LOW_STOCK_THRESHOLD = 20;
 
@@ -37,10 +38,12 @@ export default function InventoryPage() {
   const [stockFilter, setStockFilter] = useState("all");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const { activeBuilding } = useBuilding();
 
   useEffect(() => {
-    api.get("/Inventory?buildingId=1").then((res) => setData(res.data));
-  }, []);
+    if (!activeBuilding) return;
+    api.get(`/Inventory?buildingId=${activeBuilding.buildingId}`).then((res) => setData(res.data));
+  }, [activeBuilding]);
 
   const handleOpenAdd = () => {
     setAddError(null);
@@ -63,10 +66,10 @@ export default function InventoryPage() {
     try {
       await api.post("/Inventory", {
         catalogItemId: Number(form.catalogItemId),
-        buildingId: 1,
+        buildingId: activeBuilding.buildingId,
         quantity: Number(form.quantity),
       });
-      const res = await api.get("/Inventory?buildingId=1");
+      const res = await api.get(`/Inventory?buildingId=${activeBuilding.buildingId}`);
       setData(res.data);
       setShowAddModal(false);
     } catch (err) {
@@ -109,11 +112,11 @@ export default function InventoryPage() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      const res = await api.post("/Inventory/upload?buildingId=1", formData, {
+      const res = await api.post(`/Inventory/upload?buildingId=${activeBuilding.buildingId}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadStatus(res.data.message || "Upload successful.");
-      const updated = await api.get("/Inventory?buildingId=1");
+      const updated = await api.get(`/Inventory?buildingId=${activeBuilding.buildingId}`);
       setData(updated.data);
     } catch (err) {
       setUploadError(err.response?.data || "Upload failed.");

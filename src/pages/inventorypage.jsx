@@ -3,10 +3,8 @@ import PageShell from "../components/PageShell";
 import api from "../data/api";
 import { useBuilding } from "../context/BuildingContext";
 
-const LOW_STOCK_THRESHOLD = 20;
-
-function StockBadge({ qty }) {
-  const low = qty < LOW_STOCK_THRESHOLD;
+function StockBadge({ qty, minLevel }) {
+  const low = minLevel > 0 ? qty < minLevel : qty === 0;
   return (
     <span
       className="stock-badge"
@@ -27,6 +25,8 @@ export default function InventoryPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [editQty, setEditQty] = useState(0);
+  const [editMinLevel, setEditMinLevel] = useState(0);
+  const [editReorderQty, setEditReorderQty] = useState(0);
   const [catalogItems, setCatalogItems] = useState([]);
   const [form, setForm] = useState({ catalogItemId: "", quantity: 1 });
   const [addError, setAddError] = useState(null);
@@ -57,6 +57,8 @@ export default function InventoryPage() {
   const handleOpenEdit = (item) => {
     setEditItem(item);
     setEditQty(item.quantity);
+    setEditMinLevel(item.minLevel ?? 0);
+    setEditReorderQty(item.reorderQty ?? 0);
     setShowEditModal(true);
   };
 
@@ -84,10 +86,14 @@ export default function InventoryPage() {
         catalogItemId: editItem.catalogItem.catalogItemId,
         buildingId: editItem.buildingId,
         quantity: editQty,
+        minLevel: editMinLevel,
+        reorderQty: editReorderQty,
       });
       setData((prev) =>
         prev.map((item) =>
-          item.itemNumber === editItem.itemNumber ? { ...item, quantity: editQty } : item
+          item.itemNumber === editItem.itemNumber
+            ? { ...item, quantity: editQty, minLevel: editMinLevel, reorderQty: editReorderQty }
+            : item
         )
       );
       setShowEditModal(false);
@@ -147,9 +153,9 @@ export default function InventoryPage() {
     }
 
     if (stockFilter === "low") {
-      rows = rows.filter((item) => item.quantity < LOW_STOCK_THRESHOLD);
+      rows = rows.filter((item) => item.minLevel > 0 ? item.quantity < item.minLevel : item.quantity === 0);
     } else if (stockFilter === "in") {
-      rows = rows.filter((item) => item.quantity >= LOW_STOCK_THRESHOLD);
+      rows = rows.filter((item) => item.minLevel > 0 ? item.quantity >= item.minLevel : item.quantity > 0);
     }
 
     return [...rows].sort((a, b) => {
@@ -226,6 +232,8 @@ export default function InventoryPage() {
                 <th onClick={() => handleSort("name")}>Item name <SortIcon col="name" /></th>
                 <th onClick={() => handleSort("sku")}>SKU <SortIcon col="sku" /></th>
                 <th onClick={() => handleSort("quantity")}>Qty <SortIcon col="quantity" /></th>
+                <th>Min Level</th>
+                <th>Reorder Qty</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -233,7 +241,7 @@ export default function InventoryPage() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                  <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
                     {search || stockFilter !== "all" ? "No items match your filters." : "No inventory items yet."}
                   </td>
                 </tr>
@@ -247,7 +255,9 @@ export default function InventoryPage() {
                   <td className="td-primary">{item.catalogItem.name}</td>
                   <td className="td-mono">{item.catalogItem.sku || <span className="td-empty">—</span>}</td>
                   <td>{item.quantity}</td>
-                  <td><StockBadge qty={item.quantity} /></td>
+                  <td>{item.minLevel > 0 ? item.minLevel : <span className="td-empty">—</span>}</td>
+                  <td>{item.reorderQty > 0 ? item.reorderQty : <span className="td-empty">—</span>}</td>
+                  <td><StockBadge qty={item.quantity} minLevel={item.minLevel ?? 0} /></td>
                   <td className="td-arrow">›</td>
                 </tr>
               ))}
@@ -329,7 +339,7 @@ export default function InventoryPage() {
               Upload a CSV file to add inventory. Quantities will be <strong>added</strong> to existing totals for this building.
             </p>
             <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginTop: 0 }}>
-              Required columns: <code>Filter Name</code>, <code>Quantity</code>. Optional: <code>SKU</code>.
+              Required columns: <code>Filter Name</code>, <code>Quantity</code>. Optional: <code>SKU</code>, <code>MinLevel</code>, <code>ReorderQty</code>.
             </p>
             <form onSubmit={handleUpload} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <input
@@ -375,27 +385,50 @@ export default function InventoryPage() {
             className="inventory-modal-card"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2>Update quantity</h2>
-            <p>
+            <h2>Edit inventory item</h2>
+            <p style={{ marginTop: 0 }}>
               <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>
                 {editItem.catalogItem.name}
               </span>
-              <br />
-              <span style={{ color: "var(--text-secondary)" }}>
-                Adjust the quantity for this inventory item.
-              </span>
             </p>
-            <input
-              type="number"
-              min="0"
-              className="inventory-modal-input"
-              value={editQty}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (!Number.isNaN(v)) setEditQty(v);
-              }}
-            />
-            <div className="inventory-modal-actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div>
+                <label className="user-form-label">Quantity on hand</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="inventory-modal-input"
+                  style={{ marginBottom: 0 }}
+                  value={editQty}
+                  onChange={(e) => { const v = Number(e.target.value); if (!Number.isNaN(v)) setEditQty(v); }}
+                />
+              </div>
+              <div>
+                <label className="user-form-label">Minimum level</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="inventory-modal-input"
+                  style={{ marginBottom: 0 }}
+                  value={editMinLevel}
+                  onChange={(e) => { const v = Number(e.target.value); if (!Number.isNaN(v)) setEditMinLevel(v); }}
+                  placeholder="0 = no minimum set"
+                />
+              </div>
+              <div>
+                <label className="user-form-label">Reorder quantity</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="inventory-modal-input"
+                  style={{ marginBottom: 0 }}
+                  value={editReorderQty}
+                  onChange={(e) => { const v = Number(e.target.value); if (!Number.isNaN(v)) setEditReorderQty(v); }}
+                  placeholder="0 = not set"
+                />
+              </div>
+            </div>
+            <div className="inventory-modal-actions" style={{ marginTop: "1rem" }}>
               <button
                 type="button"
                 className="button inventory-modal-cancel"
@@ -404,7 +437,7 @@ export default function InventoryPage() {
                 Cancel
               </button>
               <button type="button" className="button" onClick={handleSaveQty}>
-                Save quantity
+                Save
               </button>
             </div>
           </div>

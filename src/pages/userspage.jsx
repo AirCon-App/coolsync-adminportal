@@ -3,6 +3,7 @@ import PageShell from "../components/PageShell";
 import api from "../data/api";
 
 const ROLES = ["User", "BuildingAdmin", "SuperAdmin"];
+const ROLE_LABELS = { User: "Technician", BuildingAdmin: "Building Admin", SuperAdmin: "Super Admin" };
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -18,35 +19,44 @@ export default function UsersPage() {
   const [sortKey, setSortKey] = useState("fullName");
   const [sortDir, setSortDir] = useState("asc");
 
-  useEffect(() => {
+  const fetchUsers = () =>
     api.get("/Auth/users").then((res) => setUsers(res.data));
+
+  useEffect(() => {
+    fetchUsers();
     api.get("/Buildings").then((res) => setBuildings(res.data));
   }, []);
 
   const handleAdd = async (form) => {
-    await api.post("/Auth/register", form);
+    // Register takes a single buildingId for the legacy field; sync the rest after
+    const { buildingIds, ...rest } = form;
+    await api.post("/Auth/register", {
+      ...rest,
+      buildingId: buildingIds.length > 0 ? buildingIds[0] : null,
+    });
+
+    // Re-fetch to get the new user's id, then sync all selected buildings
     const res = await api.get("/Auth/users");
-    setUsers(res.data);
+    const newUser = res.data.find((u) => u.email === form.email);
+    if (newUser && buildingIds.length > 0) {
+      await api.put(`/Auth/users/${newUser.id}/buildings/sync`, { buildingIds });
+    }
+
+    await fetchUsers();
     setShowAddModal(false);
+    // errors bubble up to UserFormModal's catch — do not swallow here
   };
 
   const handleEdit = async (form) => {
-    const res = await api.put(`/Auth/users/${editingUser.id}`, form);
-    const updated = res.data;
+    const { buildingIds, ...rest } = form;
 
-    // If building changed, also call the building assignment endpoint
-    if (form.buildingId !== editingUser.buildingId) {
-      const buildingRes = await api.put(`/Auth/users/${editingUser.id}/building`, {
-        buildingId: form.buildingId ?? null,
-      });
-      setUsers((prev) =>
-        prev.map((u) => (u.id === editingUser.id ? buildingRes.data : u))
-      );
-    } else {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === editingUser.id ? updated : u))
-      );
-    }
+    // Update name/role
+    await api.put(`/Auth/users/${editingUser.id}`, rest);
+
+    // Sync building assignments atomically
+    await api.put(`/Auth/users/${editingUser.id}/buildings/sync`, { buildingIds });
+
+    await fetchUsers();
     setEditingUser(null);
   };
 
@@ -63,10 +73,14 @@ export default function UsersPage() {
     const q = search.toLowerCase();
     let rows = users;
 
-    // Building filter: show users assigned to this building, plus SuperAdmins (null buildingId)
+    // Building filter: show users assigned to this building, plus SuperAdmins (empty buildingIds)
     if (selectedBuildingId !== "all") {
       const bid = Number(selectedBuildingId);
-      rows = rows.filter((u) => u.buildingId === bid || u.buildingId === null);
+      rows = rows.filter(
+        (u) =>
+          (u.buildingIds ?? []).includes(bid) ||
+          (u.buildingIds ?? []).length === 0
+      );
     }
 
     if (q) {
@@ -166,7 +180,7 @@ export default function UsersPage() {
           >
             <option value="all">All roles</option>
             {ROLES.map((r) => (
-              <option key={r} value={r}>{r}</option>
+              <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
             ))}
           </select>
           <button className="inventory-button" onClick={() => setShowAddModal(true)}>
@@ -181,7 +195,7 @@ export default function UsersPage() {
                 <th onClick={() => handleSort("fullName")}>Name <SortIcon col="fullName" /></th>
                 <th onClick={() => handleSort("email")}>Email <SortIcon col="email" /></th>
                 <th onClick={() => handleSort("role")}>Role <SortIcon col="role" /></th>
-                <th>Building</th>
+                <th>Buildings</th>
                 <th></th>
               </tr>
             </thead>
@@ -196,18 +210,18 @@ export default function UsersPage() {
                 </tr>
               )}
               {filtered.map((user) => {
-                const building = buildings.find((b) => b.buildingId === user.buildingId);
+                const userBuildings = (user.buildingIds ?? [])
+                  .map((bid) => buildings.find((b) => b.buildingId === bid)?.name)
+                  .filter(Boolean);
                 return (
                   <tr key={user.id} className="data-table-row">
                     <td className="td-primary">{user.fullName || <span className="td-empty">—</span>}</td>
                     <td className="td-mono">{user.email}</td>
-                    <td><span className="role-badge">{user.role}</span></td>
+                    <td><span className="role-badge">{ROLE_LABELS[user.role] ?? user.role}</span></td>
                     <td>
-                      {building
-                        ? building.name
-                        : user.buildingId === null
-                        ? <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>All buildings</span>
-                        : <span className="td-empty">—</span>}
+                      {userBuildings.length > 0
+                        ? userBuildings.join(", ")
+                        : <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>All buildings</span>}
                     </td>
                     <td>
                       <div className="user-row-actions">
@@ -282,7 +296,7 @@ export default function UsersPage() {
                   .filter((u) => u.id !== deletingUser.id)
                   .map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.fullName || u.email} ({u.role})
+                      {u.fullName || u.email} ({ROLE_LABELS[u.role] ?? u.role})
                     </option>
                   ))}
               </select>
@@ -320,24 +334,36 @@ function UserFormModal({ title, initial = {}, buildings = [], onSave, onClose, s
     email: initial.email || "",
     password: "",
     role: initial.role || "User",
-    buildingId: initial.buildingId ?? "",
+    buildingIds: initial.buildingIds ?? [],
   });
   const [error, setError] = useState(null);
 
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
+  const toggleBuilding = (bid) => {
+    setForm((prev) => {
+      const ids = prev.buildingIds.includes(bid)
+        ? prev.buildingIds.filter((id) => id !== bid)
+        : [...prev.buildingIds, bid];
+      return { ...prev, buildingIds: ids };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     try {
-      const payload = {
-        ...form,
-        buildingId: form.buildingId !== "" ? Number(form.buildingId) : null,
-      };
-      await onSave(payload);
+      await onSave(form);
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      const data = err.response?.data;
+      if (Array.isArray(data)) {
+        setError(data.map((e) => e.description).join(" "));
+      } else if (typeof data === "string") {
+        setError(data);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     }
   };
 
@@ -402,27 +428,48 @@ function UserFormModal({ title, initial = {}, buildings = [], onSave, onClose, s
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {ROLE_LABELS[r] ?? r}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="user-form-label">Building access</label>
-            <select
-              className="inventory-modal-input"
-              style={{ marginBottom: 0 }}
-              name="buildingId"
-              value={form.buildingId}
-              onChange={handleChange}
+            <label className="user-form-label">
+              Building access
+              <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: "0.4rem", fontSize: "0.8rem" }}>
+                (leave empty for all buildings)
+              </span>
+            </label>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.4rem",
+                maxHeight: 160,
+                overflowY: "auto",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                padding: "0.5rem 0.75rem",
+                background: "var(--input-bg, var(--bg-secondary))",
+              }}
             >
-              <option value="">All buildings (SuperAdmin)</option>
+              {buildings.length === 0 && (
+                <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No buildings available</span>
+              )}
               {buildings.map((b) => (
-                <option key={b.buildingId} value={b.buildingId}>
+                <label
+                  key={b.buildingId}
+                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.buildingIds.includes(b.buildingId)}
+                    onChange={() => toggleBuilding(b.buildingId)}
+                  />
                   {b.name}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
           {error && (
             <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>

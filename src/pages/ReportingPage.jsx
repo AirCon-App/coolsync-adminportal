@@ -2,9 +2,11 @@ import React, { useState, useEffect, useMemo } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
 import { SlPrinter } from "react-icons/sl";
+import { TbMail } from "react-icons/tb";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useBuilding } from "../context/BuildingContext";
+import { useAuth } from "../context/AuthContext";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -92,7 +94,7 @@ function SummaryList({ title, items }) {
   );
 }
 
-function ReportCard({ title, buildingName, children, onExport }) {
+function ReportCard({ title, buildingName, controls, children, onExport, onEmail, emailSending, emailStatus }) {
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   return (
     <div className="inventory-item" style={{ flexDirection: "column", alignItems: "stretch", gap: "1.5rem", padding: "1.5rem", marginBottom: "2rem" }}>
@@ -101,12 +103,34 @@ function ReportCard({ title, buildingName, children, onExport }) {
           <h2 style={{ margin: "0 0 0.2rem", color: "var(--text-primary)", fontSize: "1.2rem", fontWeight: 700 }}>{title}</h2>
           {buildingName && <p style={{ margin: "0 0 0.1rem", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{buildingName}</p>}
           <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.8rem" }}>{today}</p>
+          {controls && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+              {controls}
+            </div>
+          )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem", letterSpacing: "0.04em" }}>NJ Filters</span>
-          <button className="button" onClick={onExport} style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 1rem", fontSize: "0.85rem" }}>
-            <SlPrinter /> Export PDF
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem", letterSpacing: "0.04em" }}>NJ Filters</span>
+            <button className="button" onClick={onExport} style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 1rem", fontSize: "0.85rem" }}>
+              <SlPrinter /> Export PDF
+            </button>
+            {onEmail && (
+              <button
+                className="button inventory-button--secondary"
+                onClick={onEmail}
+                disabled={emailSending}
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 1rem", fontSize: "0.85rem" }}
+              >
+                <TbMail size={15} /> {emailSending ? "Sending…" : "Email Report"}
+              </button>
+            )}
+          </div>
+          {emailStatus && (
+            <p style={{ margin: 0, fontSize: "0.78rem", color: emailStatus.ok ? "var(--success)" : "var(--danger)" }}>
+              {emailStatus.ok ? `Sent to ${emailStatus.email}` : "Failed to send. Check SMTP configuration."}
+            </p>
+          )}
         </div>
       </div>
       {children}
@@ -116,8 +140,18 @@ function ReportCard({ title, buildingName, children, onExport }) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+const DATE_PRESETS = [
+  { value: "30d",    label: "Last 30 Days",   pastDays: 30,  futureDays: 30 },
+  { value: "1m",     label: "1 Month",         pastDays: 31,  futureDays: 31 },
+  { value: "3m",     label: "3 Months",        pastDays: 91,  futureDays: 91 },
+  { value: "6m",     label: "6 Months",        pastDays: 182, futureDays: 182 },
+  { value: "1y",     label: "1 Year",          pastDays: 365, futureDays: 365 },
+  { value: "custom", label: "Custom Range",    pastDays: null, futureDays: null },
+];
+
 export default function ReportingPage() {
   const { buildings, activeBuilding } = useBuilding();
+  const { user: authUser } = useAuth();
   const [selectedBuilding, setSelectedBuilding] = useState("");
   const [airHandlers, setAirHandlers] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
@@ -127,6 +161,35 @@ export default function ReportingPage() {
   const [loading, setLoading] = useState(true);
   const [buildingLoading, setBuildingLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [emailStatus, setEmailStatus] = useState({ filter: null, inventory: null });
+  const [emailSending, setEmailSending] = useState({ filter: false, inventory: false });
+  const [datePreset, setDatePreset] = useState("30d");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    if (datePreset === "custom") {
+      const start = customStart ? new Date(customStart) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const end = customEnd ? new Date(customEnd) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      end.setHours(23, 59, 59, 999);
+      return { pastCutoff: start, futureCutoff: end };
+    }
+    const preset = DATE_PRESETS.find((p) => p.value === datePreset) ?? DATE_PRESETS[0];
+    return {
+      pastCutoff: new Date(now.getTime() - preset.pastDays * 24 * 60 * 60 * 1000),
+      futureCutoff: new Date(now.getTime() + preset.futureDays * 24 * 60 * 60 * 1000),
+    };
+  }, [datePreset, customStart, customEnd]);
+
+  const dateRangeLabel = useMemo(() => {
+    if (datePreset === "custom") {
+      const s = customStart || "…";
+      const e = customEnd || "…";
+      return `${s} – ${e}`;
+    }
+    return DATE_PRESETS.find((p) => p.value === datePreset)?.label ?? "30 Days";
+  }, [datePreset, customStart, customEnd]);
 
   // Sync selectedBuilding with activeBuilding from context
   useEffect(() => {
@@ -202,8 +265,7 @@ export default function ReportingPage() {
 
   const filterActivityReport = useMemo(() => {
     const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const { pastCutoff, futureCutoff } = dateRange;
 
     const completedRows = [];
     const upcomingRows = [];
@@ -216,7 +278,7 @@ export default function ReportingPage() {
       if (wo.completedDate || wo.activityDate) {
         const serviceDate = wo.activityDate ?? wo.completedDate;
         const completedAt = new Date(serviceDate);
-        if (completedAt >= thirtyDaysAgo) {
+        if (completedAt >= pastCutoff && completedAt <= now) {
           const earlyLate = formatDaysEarlyLate(wo.dueDate, serviceDate);
           const earlyLateColor = daysEarlyLateColor(wo.dueDate, serviceDate);
           completedRows.push({
@@ -232,7 +294,7 @@ export default function ReportingPage() {
         }
       } else if (wo.dueDate) {
         const dueAt = new Date(wo.dueDate);
-        if (dueAt >= now && dueAt <= thirtyDaysAhead) {
+        if (dueAt >= now && dueAt <= futureCutoff) {
           upcomingRows.push({
             unit: unitName,
             filterType: filtersName,
@@ -255,33 +317,41 @@ export default function ReportingPage() {
       summary: [
         `Total filters replaced: ${totalReplaced}`,
         `Filter changes completed on schedule: ${pctOnTime}%`,
-        `Upcoming changes in next 30 days: ${upcomingRows.length}`,
+        `Upcoming changes (${dateRangeLabel}): ${upcomingRows.length}`,
       ],
     };
-  }, [workOrders, handlerMap, userMap]);
+  }, [workOrders, handlerMap, userMap, dateRange, dateRangeLabel]);
 
   // ─── Inventory Report data ───────────────────────────────────────────────
 
   const inventoryReport = useMemo(() => {
     const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const { pastCutoff, futureCutoff } = dateRange;
 
     // Current inventory levels
-    const currentLevels = inventory.map((inv) => ({
-      filterSize: inv.catalogItem?.name ?? "—",
-      onHand: inv.quantity,
-      minLevel: "—",
-      status: inv.quantity > 0 ? "OK" : "Out of Stock",
-      statusColor: inv.quantity > 0 ? "var(--success)" : "var(--danger)",
-    }));
+    const currentLevels = inventory.map((inv) => {
+      const min = inv.minLevel ?? 0;
+      const belowMin = min > 0 && inv.quantity < min;
+      const outOfStock = inv.quantity === 0;
+      const status = outOfStock ? "Out of Stock" : belowMin ? "Low Stock" : "OK";
+      const statusColor = outOfStock || belowMin ? "var(--danger)" : "var(--success)";
+      return {
+        filterSize: inv.catalogItem?.name ?? "—",
+        onHand: inv.quantity,
+        minLevel: min > 0 ? min : "—",
+        reorderQty: (inv.reorderQty ?? 0) > 0 ? inv.reorderQty : "—",
+        status,
+        statusColor,
+      };
+    });
 
-    // Usage last 30 days — group by itemId
+    // Usage over selected past range — group by itemId
     const usageMap = {};
     workOrders.forEach((wo) => {
       const serviceDate = wo.activityDate ?? wo.completedDate;
       if (!serviceDate) return;
-      if (new Date(serviceDate) < thirtyDaysAgo) return;
+      const d = new Date(serviceDate);
+      if (d < pastCutoff || d > now) return;
       const name = itemNameMap[wo.itemId];
       if (!name) return;
       if (!usageMap[wo.itemId]) usageMap[wo.itemId] = { name, qtyUsed: 0, locations: new Set() };
@@ -295,13 +365,13 @@ export default function ReportingPage() {
       primaryLocations: [...u.locations].join(", ") || "—",
     }));
 
-    // Upcoming demand next 30 days — group by itemId
+    // Upcoming demand over selected future range — group by itemId
     const demandMap = {};
     workOrders.forEach((wo) => {
       if (wo.completedDate) return;
       if (!wo.dueDate) return;
       const dueAt = new Date(wo.dueDate);
-      if (dueAt < now || dueAt > thirtyDaysAhead) return;
+      if (dueAt < now || dueAt > futureCutoff) return;
       const name = itemNameMap[wo.itemId];
       if (!name) return;
       if (!demandMap[wo.itemId]) demandMap[wo.itemId] = { name, qtyRequired: 0, units: new Set() };
@@ -315,45 +385,49 @@ export default function ReportingPage() {
       scheduledUnits: [...d.units].join(", ") || "—",
     }));
 
-    // Reorder recommendations — on-hand < upcoming demand
+    // Reorder recommendations — triggered by minLevel breach OR demand shortfall
     const reorderRows = inventory
       .map((inv) => {
         const name = inv.catalogItem?.name;
         const demand = demandMap[inv.catalogItem?.catalogItemId]?.qtyRequired ?? 0;
-        if (inv.quantity < demand) {
-          return {
-            filterSize: name ?? "—",
-            currentQty: inv.quantity,
-            recommendedQty: demand - inv.quantity,
-          };
-        }
-        return null;
+        const minLevel = inv.minLevel ?? 0;
+        const belowMin = minLevel > 0 && inv.quantity < minLevel;
+        const belowDemand = inv.quantity < demand;
+        if (!belowMin && !belowDemand) return null;
+        const baseQty = Math.max(inv.reorderQty ?? 0, demand - inv.quantity, minLevel > 0 ? minLevel - inv.quantity : 0);
+        return {
+          filterSize: name ?? "—",
+          currentQty: inv.quantity,
+          minLevel: minLevel > 0 ? minLevel : "—",
+          recommendedQty: Math.max(baseQty, 1),
+        };
       })
       .filter(Boolean);
 
-    const totalOnHand = inventory.reduce((sum, inv) => sum + inv.quantity, 0);
     const totalUpcomingDemand = Object.values(demandMap).reduce((sum, d) => sum + d.qtyRequired, 0);
+    const lowStockCount = currentLevels.filter((r) => r.status !== "OK").length;
 
     return {
       currentLevels,
       usageRows,
       demandRows,
       reorderRows,
+      lowStockCount,
       summary: [
         `Total filter types tracked: ${inventory.length}`,
-        `Filters currently below minimum: ${reorderRows.length}`,
-        `Estimated filters required in next 30 days: ${totalUpcomingDemand}`,
+        `Filters currently below minimum: ${lowStockCount}`,
+        `Estimated filters required (${dateRangeLabel}): ${totalUpcomingDemand}`,
         `Inventory shortfall risk: ${reorderRows.length === 0 ? "None" : reorderRows.length <= 2 ? "Low–Moderate" : "High"}`,
       ],
     };
-  }, [inventory, workOrders, handlerMap, itemNameMap]);
+  }, [inventory, workOrders, handlerMap, itemNameMap, dateRange, dateRangeLabel]);
 
   // ─── PDF export ─────────────────────────────────────────────────────────
 
   const selectedBuildingName = buildings.find((b) => String(b.buildingId) === selectedBuilding)?.name ?? "";
   const today = new Date().toLocaleDateString();
 
-  function exportFilterActivityPDF() {
+  function buildFilterActivityPDF() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -364,7 +438,7 @@ export default function ReportingPage() {
 
     let y = 44;
 
-    doc.setFontSize(10).setFont(undefined, "bold").text("Completed Filter Changes (Last 30 Days)", 14, y);
+    doc.setFontSize(10).setFont(undefined, "bold").text(`Completed Filter Changes (${dateRangeLabel})`, 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Unit", "Filter Type", "Filter Size / MERV", "Qty", "Date Changed", "Days Early/Late", "Technician"]],
@@ -375,7 +449,7 @@ export default function ReportingPage() {
     });
 
     y = doc.lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text("Upcoming Filter Changes (Next 30 Days)", 14, y);
+    doc.setFontSize(10).setFont(undefined, "bold").text(`Upcoming Filter Changes (${dateRangeLabel})`, 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Unit", "Filter Type", "Filter Size / MERV", "Qty", "Next Due Date"]],
@@ -386,15 +460,34 @@ export default function ReportingPage() {
     });
 
     y = doc.lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text("30 Day Summary", 14, y);
+    doc.setFontSize(10).setFont(undefined, "bold").text(`Summary (${dateRangeLabel})`, 14, y);
     filterActivityReport.summary.forEach((line, i) => {
       doc.setFontSize(9).setFont(undefined, "normal").text(`• ${line}`, 18, y + 8 + i * 6);
     });
 
-    doc.save(`FilterActivityReport_${selectedBuildingName}_${today}.pdf`);
+    return doc;
   }
 
-  function exportInventoryPDF() {
+  function exportFilterActivityPDF() {
+    buildFilterActivityPDF().save(`FilterActivityReport_${selectedBuildingName}_${today}.pdf`);
+  }
+
+  async function emailFilterReport() {
+    setEmailSending((s) => ({ ...s, filter: true }));
+    setEmailStatus((s) => ({ ...s, filter: null }));
+    try {
+      const doc = buildFilterActivityPDF();
+      const base64 = doc.output("datauristring").split(",")[1];
+      await api.post("/ReportEmail/send", { reportType: "filter", pdfBase64: base64 });
+      setEmailStatus((s) => ({ ...s, filter: { ok: true, email: authUser?.email } }));
+    } catch {
+      setEmailStatus((s) => ({ ...s, filter: { ok: false } }));
+    } finally {
+      setEmailSending((s) => ({ ...s, filter: false }));
+    }
+  }
+
+  function buildInventoryPDF() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -408,15 +501,15 @@ export default function ReportingPage() {
     doc.setFontSize(10).setFont(undefined, "bold").text("Current Inventory Levels", 14, y);
     autoTable(doc, {
       startY: y + 4,
-      head: [["Filter Size / MERV", "On Hand Qty", "Minimum Level", "Status"]],
-      body: inventoryReport.currentLevels.map((r) => [r.filterSize, r.onHand, r.minLevel, r.status]),
+      head: [["Filter Size / MERV", "On Hand Qty", "Min Level", "Reorder Qty", "Status"]],
+      body: inventoryReport.currentLevels.map((r) => [r.filterSize, r.onHand, r.minLevel, r.reorderQty, r.status]),
       headStyles: PDF_HEAD_STYLES,
       styles: PDF_STYLES,
       alternateRowStyles: PDF_ALT_ROW,
     });
 
     y = doc.lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text("Inventory Usage (Last 30 Days)", 14, y);
+    doc.setFontSize(10).setFont(undefined, "bold").text(`Inventory Usage (${dateRangeLabel})`, 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Filter Size / MERV", "Qty Used", "Primary Locations"]],
@@ -427,7 +520,7 @@ export default function ReportingPage() {
     });
 
     y = doc.lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text("Upcoming Inventory Demand (Next 30 Days)", 14, y);
+    doc.setFontSize(10).setFont(undefined, "bold").text(`Upcoming Inventory Demand (${dateRangeLabel})`, 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Filter Size / MERV", "Qty Required", "Scheduled Units"]],
@@ -441,10 +534,10 @@ export default function ReportingPage() {
     doc.setFontSize(10).setFont(undefined, "bold").text("Reorder Recommendations", 14, y);
     autoTable(doc, {
       startY: y + 4,
-      head: [["Filter Size / MERV", "Current Qty", "Recommended Order Qty"]],
+      head: [["Filter Size / MERV", "Current Qty", "Min Level", "Recommended Order Qty"]],
       body: inventoryReport.reorderRows.length > 0
-        ? inventoryReport.reorderRows.map((r) => [r.filterSize, r.currentQty, r.recommendedQty])
-        : [["No reorders recommended", "", ""]],
+        ? inventoryReport.reorderRows.map((r) => [r.filterSize, r.currentQty, r.minLevel, r.recommendedQty])
+        : [["No reorders recommended", "", "", ""]],
       headStyles: PDF_HEAD_STYLES,
       styles: PDF_STYLES,
       alternateRowStyles: PDF_ALT_ROW,
@@ -456,7 +549,26 @@ export default function ReportingPage() {
       doc.setFontSize(9).setFont(undefined, "normal").text(`• ${line}`, 18, y + 8 + i * 6);
     });
 
-    doc.save(`InventoryReport_${selectedBuildingName}_${today}.pdf`);
+    return doc;
+  }
+
+  function exportInventoryPDF() {
+    buildInventoryPDF().save(`InventoryReport_${selectedBuildingName}_${today}.pdf`);
+  }
+
+  async function emailInventoryReport() {
+    setEmailSending((s) => ({ ...s, inventory: true }));
+    setEmailStatus((s) => ({ ...s, inventory: null }));
+    try {
+      const doc = buildInventoryPDF();
+      const base64 = doc.output("datauristring").split(",")[1];
+      await api.post("/ReportEmail/send", { reportType: "inventory", pdfBase64: base64 });
+      setEmailStatus((s) => ({ ...s, inventory: { ok: true, email: authUser?.email } }));
+    } catch {
+      setEmailStatus((s) => ({ ...s, inventory: { ok: false } }));
+    } finally {
+      setEmailSending((s) => ({ ...s, inventory: false }));
+    }
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────
@@ -474,25 +586,9 @@ export default function ReportingPage() {
       <div style={{ width: "100%", maxWidth: 960 }}>
 
           {/* Page header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
-            <div>
-              <h1 style={{ color: "var(--text-primary)", margin: "0 0 0.25rem" }}>Reports</h1>
-              <p style={{ color: "var(--text-secondary)", margin: 0, fontSize: "0.95rem" }}>Filter activity and inventory reporting by property.</p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <label style={{ color: "var(--text-secondary)", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Property</label>
-              <select
-                className="inventory-modal-input"
-                value={selectedBuilding}
-                onChange={(e) => setSelectedBuilding(e.target.value)}
-                style={{ marginBottom: 0, width: "auto", minWidth: 180 }}
-              >
-                {buildings.length === 0 && <option value="">No buildings available</option>}
-                {buildings.map((b) => (
-                  <option key={b.buildingId} value={b.buildingId}>{b.name}</option>
-                ))}
-              </select>
-            </div>
+          <div style={{ marginBottom: "2rem" }}>
+            <h1 style={{ color: "var(--text-primary)", margin: "0 0 0.25rem" }}>Reports</h1>
+            <p style={{ color: "var(--text-secondary)", margin: 0, fontSize: "0.95rem" }}>Filter activity and inventory reporting by property.</p>
           </div>
 
           {/* Error state */}
@@ -511,9 +607,50 @@ export default function ReportingPage() {
           ) : (
             <>
               {/* ── Filter Activity Report ── */}
-              <ReportCard title="Filter Activity Report" buildingName={selectedBuildingName} onExport={exportFilterActivityPDF}>
+              <ReportCard
+                title="Filter Activity Report"
+                buildingName={selectedBuildingName}
+                controls={
+                  <>
+                    <label style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Period</label>
+                    <select
+                      className="inventory-modal-input"
+                      value={datePreset}
+                      onChange={(e) => setDatePreset(e.target.value)}
+                      style={{ marginBottom: 0, width: "auto", minWidth: 140, fontSize: "0.82rem", padding: "0.3rem 0.6rem" }}
+                    >
+                      {DATE_PRESETS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    {datePreset === "custom" && (
+                      <>
+                        <input
+                          type="date"
+                          className="inventory-modal-input"
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                          style={{ marginBottom: 0, width: "auto", fontSize: "0.82rem", padding: "0.3rem 0.6rem" }}
+                        />
+                        <span style={{ color: "var(--text-muted)", fontSize: "0.82rem" }}>–</span>
+                        <input
+                          type="date"
+                          className="inventory-modal-input"
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                          style={{ marginBottom: 0, width: "auto", fontSize: "0.82rem", padding: "0.3rem 0.6rem" }}
+                        />
+                      </>
+                    )}
+                  </>
+                }
+                onExport={exportFilterActivityPDF}
+                onEmail={emailFilterReport}
+                emailSending={emailSending.filter}
+                emailStatus={emailStatus.filter}
+              >
                 <SectionTable
-                  title="Completed Filter Changes (Last 30 Days)"
+                  title={`Completed Filter Changes (${dateRangeLabel})`}
                   columns={[
                     { key: "unit", label: "Unit" },
                     { key: "filterType", label: "Filter Type" },
@@ -526,7 +663,7 @@ export default function ReportingPage() {
                   rows={filterActivityReport.completedRows}
                 />
                 <SectionTable
-                  title="Upcoming Filter Changes (Next 30 Days)"
+                  title={`Upcoming Filter Changes (${dateRangeLabel})`}
                   columns={[
                     { key: "unit", label: "Unit" },
                     { key: "filterType", label: "Filter Type" },
@@ -536,23 +673,40 @@ export default function ReportingPage() {
                   ]}
                   rows={filterActivityReport.upcomingRows}
                 />
-                <SummaryList title="30 Day Summary" items={filterActivityReport.summary} />
+                <SummaryList title={`Summary (${dateRangeLabel})`} items={filterActivityReport.summary} />
               </ReportCard>
 
               {/* ── Inventory Report ── */}
-              <ReportCard title="Inventory Report" buildingName={selectedBuildingName} onExport={exportInventoryPDF}>
+              <ReportCard
+                title={
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    Inventory Report
+                    {inventoryReport.lowStockCount > 0 && (
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "var(--danger)", color: "#fff", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 700, minWidth: "1.4em", height: "1.4em", padding: "0 0.35em", lineHeight: 1 }}>
+                        {inventoryReport.lowStockCount}
+                      </span>
+                    )}
+                  </span>
+                }
+                buildingName={selectedBuildingName}
+                onExport={exportInventoryPDF}
+                onEmail={emailInventoryReport}
+                emailSending={emailSending.inventory}
+                emailStatus={emailStatus.inventory}
+              >
                 <SectionTable
                   title="Current Inventory Levels"
                   columns={[
                     { key: "filterSize", label: "Filter Size / MERV" },
                     { key: "onHand", label: "On Hand Qty", align: "center" },
-                    { key: "minLevel", label: "Minimum Level", align: "center" },
+                    { key: "minLevel", label: "Min Level", align: "center" },
+                    { key: "reorderQty", label: "Reorder Qty", align: "center" },
                     { key: "status", label: "Status" },
                   ]}
                   rows={inventoryReport.currentLevels}
                 />
                 <SectionTable
-                  title="Inventory Usage (Last 30 Days)"
+                  title={`Inventory Usage (${dateRangeLabel})`}
                   columns={[
                     { key: "filterSize", label: "Filter Size / MERV" },
                     { key: "qtyUsed", label: "Qty Used", align: "center" },
@@ -561,7 +715,7 @@ export default function ReportingPage() {
                   rows={inventoryReport.usageRows}
                 />
                 <SectionTable
-                  title="Upcoming Inventory Demand (Next 30 Days)"
+                  title={`Upcoming Inventory Demand (${dateRangeLabel})`}
                   columns={[
                     { key: "filterSize", label: "Filter Size / MERV" },
                     { key: "qtyRequired", label: "Qty Required", align: "center" },
@@ -574,6 +728,7 @@ export default function ReportingPage() {
                   columns={[
                     { key: "filterSize", label: "Filter Size / MERV" },
                     { key: "currentQty", label: "Current Qty", align: "center" },
+                    { key: "minLevel", label: "Min Level", align: "center" },
                     { key: "recommendedQty", label: "Recommended Order Qty", align: "center" },
                   ]}
                   rows={inventoryReport.reorderRows}

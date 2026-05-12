@@ -8,18 +8,40 @@ import {
   SlChart,
   SlLogin,
 } from "react-icons/sl";
-import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper } from "react-icons/tb";
+import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper, TbLayoutList } from "react-icons/tb";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import CoolSyncLogo from "./CoolSyncLogo";
 import BuildingSwitcher from "./BuildingSwitcher";
 
-const BASE_NAV_ITEMS = [
-  { to: "/home", label: "Dashboard", icon: SlGrid },
-  { to: "/airhandlers", label: "Air Handlers", icon: TbAirConditioning },
-  { to: "/inventory", label: "Inventory", icon: SlDrawer },
-  { to: "/users", label: "Users", icon: SlPeople },
-  { to: "/reports", label: "Reports", icon: SlChart },
+const NAV_GROUPS = [
+  {
+    label: "Overview",
+    items: [
+      { to: "/home", label: "Dashboard", icon: SlGrid },
+    ],
+  },
+  {
+    label: "Property",
+    items: [
+      { to: "/buildings", label: "Buildings", icon: TbBuildingSkyscraper, superAdminOnly: true },
+      { to: "/airhandlers", label: "Air Handlers", icon: TbAirConditioning },
+      { to: "/areas", label: "Areas", icon: TbLayoutList },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { to: "/inventory", label: "Inventory", icon: SlDrawer },
+      { to: "/reports", label: "Reports", icon: SlChart },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { to: "/users", label: "Users", icon: SlPeople },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -29,9 +51,6 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   const isSuperAdmin = user?.isSuperAdmin || user?.role === "SuperAdmin";
-  const navItems = isSuperAdmin
-    ? [...BASE_NAV_ITEMS, { to: "/buildings", label: "Buildings", icon: TbBuildingSkyscraper }]
-    : BASE_NAV_ITEMS;
 
   const handleLogout = () => {
     logout();
@@ -62,19 +81,32 @@ export default function Sidebar() {
 
       <BuildingSwitcher collapsed={collapsed} />
 
-      <nav className="sidebar-nav">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `sidebar-nav-item${isActive ? " sidebar-nav-item--active" : ""}`
-            }
-          >
-            <Icon className="sidebar-nav-icon" />
-            {!collapsed && <span>{label}</span>}
-          </NavLink>
-        ))}
+      <nav className="sidebar-nav" aria-label="Main navigation">
+        {NAV_GROUPS.map((group, gi) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.superAdminOnly || isSuperAdmin
+          );
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={group.label} className={`sidebar-nav-group${gi > 0 ? " sidebar-nav-group--divided" : ""}`}>
+              {!collapsed && (
+                <span className="sidebar-nav-group-label">{group.label}</span>
+              )}
+              {visibleItems.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `sidebar-nav-item${isActive ? " sidebar-nav-item--active" : ""}`
+                  }
+                >
+                  <Icon className="sidebar-nav-icon" />
+                  {!collapsed && <span>{label}</span>}
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="sidebar-footer">

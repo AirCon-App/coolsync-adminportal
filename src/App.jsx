@@ -13,6 +13,7 @@ import AirHandlersPage from "./pages/airhandlers";
 import AirHandlerDetailPage from "./pages/airhandlerdetail";
 import ReportingPage from "./pages/ReportingPage";
 import BuildingsPage from "./pages/BuildingsPage";
+import AreasPage from "./pages/AreasPage";
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
               <Route path="/airhandlers/:guid" element={<ProtectedRoute><AirHandlerDetailPage /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><ReportingPage /></ProtectedRoute>} />
               <Route path="/buildings" element={<ProtectedRoute requireRole="SuperAdmin"><BuildingsPage /></ProtectedRoute>} />
+              <Route path="/areas" element={<ProtectedRoute><AreasPage /></ProtectedRoute>} />
             </Routes>
           </Router>
         </BuildingProvider>

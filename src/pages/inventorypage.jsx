@@ -36,13 +36,18 @@ export default function InventoryPage() {
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [stockFilter, setStockFilter] = useState("all");
+  const [areaFilter, setAreaFilter] = useState("all");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const [areas, setAreas] = useState([]);
+  const [editAreaId, setEditAreaId] = useState("");
+  const [uploadMode, setUploadMode] = useState("add");
   const { activeBuilding } = useBuilding();
 
   useEffect(() => {
     if (!activeBuilding) return;
     api.get(`/Inventory?buildingId=${activeBuilding.buildingId}`).then((res) => setData(res.data));
+    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => setAreas(res.data));
   }, [activeBuilding]);
 
   const handleOpenAdd = () => {
@@ -59,7 +64,26 @@ export default function InventoryPage() {
     setEditQty(item.quantity);
     setEditMinLevel(item.minLevel ?? 0);
     setEditReorderQty(item.reorderQty ?? 0);
+    setEditAreaId(item.areaId ?? "");
     setShowEditModal(true);
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await api.get(`/Inventory/template?buildingId=${activeBuilding.buildingId}`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `inventory_template_building_${activeBuilding.buildingId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Template download failed:", err);
+    }
   };
 
   const handleAdd = async (e) => {
@@ -81,6 +105,7 @@ export default function InventoryPage() {
 
   const handleSaveQty = async () => {
     try {
+      const areaIdValue = editAreaId === "" ? null : Number(editAreaId);
       await api.put(`/Inventory/${editItem.itemNumber}`, {
         itemNumber: editItem.itemNumber,
         catalogItemId: editItem.catalogItem.catalogItemId,
@@ -88,11 +113,13 @@ export default function InventoryPage() {
         quantity: editQty,
         minLevel: editMinLevel,
         reorderQty: editReorderQty,
+        areaId: areaIdValue,
       });
+      const areaName = areaIdValue ? (areas.find((a) => a.id === areaIdValue)?.name ?? null) : null;
       setData((prev) =>
         prev.map((item) =>
           item.itemNumber === editItem.itemNumber
-            ? { ...item, quantity: editQty, minLevel: editMinLevel, reorderQty: editReorderQty }
+            ? { ...item, quantity: editQty, minLevel: editMinLevel, reorderQty: editReorderQty, areaId: areaIdValue, areaName }
             : item
         )
       );
@@ -118,7 +145,7 @@ export default function InventoryPage() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      const res = await api.post(`/Inventory/upload?buildingId=${activeBuilding.buildingId}`, formData, {
+      const res = await api.post(`/Inventory/upload?buildingId=${activeBuilding.buildingId}&mode=${uploadMode}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadStatus(res.data.message || "Upload successful.");
@@ -158,6 +185,14 @@ export default function InventoryPage() {
       rows = rows.filter((item) => item.minLevel > 0 ? item.quantity >= item.minLevel : item.quantity > 0);
     }
 
+    if (areaFilter !== "all") {
+      if (areaFilter === "none") {
+        rows = rows.filter((item) => !item.areaId);
+      } else {
+        rows = rows.filter((item) => String(item.areaId) === areaFilter);
+      }
+    }
+
     return [...rows].sort((a, b) => {
       let av, bv;
       if (sortKey === "quantity") {
@@ -176,7 +211,7 @@ export default function InventoryPage() {
       if (av > bv) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
-  }, [data, search, stockFilter, sortKey, sortDir]);
+  }, [data, search, stockFilter, areaFilter, sortKey, sortDir]);
 
   const SortIcon = ({ col }) => {
     if (sortKey !== col) return <span className="sort-icon">↕</span>;
@@ -217,6 +252,20 @@ export default function InventoryPage() {
             <option value="in">In stock</option>
             <option value="low">Low stock</option>
           </select>
+          <select
+            className="table-filter-select"
+            value={areaFilter}
+            onChange={(e) => setAreaFilter(e.target.value)}
+          >
+            <option value="all">All areas</option>
+            <option value="none">Unassigned</option>
+            {areas.map((a) => (
+              <option key={a.id} value={String(a.id)}>{a.name}</option>
+            ))}
+          </select>
+          <button className="inventory-button inventory-button--secondary" onClick={handleDownloadTemplate}>
+            Download Template
+          </button>
           <button className="inventory-button inventory-button--secondary" onClick={handleOpenUpload}>
             Bulk Upload
           </button>
@@ -231,6 +280,7 @@ export default function InventoryPage() {
               <tr>
                 <th onClick={() => handleSort("name")}>Item name <SortIcon col="name" /></th>
                 <th onClick={() => handleSort("sku")}>SKU <SortIcon col="sku" /></th>
+                <th>Area</th>
                 <th onClick={() => handleSort("quantity")}>Qty <SortIcon col="quantity" /></th>
                 <th>Min Level</th>
                 <th>Reorder Qty</th>
@@ -241,8 +291,8 @@ export default function InventoryPage() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
-                    {search || stockFilter !== "all" ? "No items match your filters." : "No inventory items yet."}
+                  <td colSpan={8} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                    {search || stockFilter !== "all" || areaFilter !== "all" ? "No items match your filters." : "No inventory items yet."}
                   </td>
                 </tr>
               )}
@@ -254,6 +304,7 @@ export default function InventoryPage() {
                 >
                   <td className="td-primary">{item.catalogItem.name}</td>
                   <td className="td-mono">{item.catalogItem.sku || <span className="td-empty">—</span>}</td>
+                  <td>{item.areaName || <span className="td-empty">—</span>}</td>
                   <td>{item.quantity}</td>
                   <td>{item.minLevel > 0 ? item.minLevel : <span className="td-empty">—</span>}</td>
                   <td>{item.reorderQty > 0 ? item.reorderQty : <span className="td-empty">—</span>}</td>
@@ -336,12 +387,42 @@ export default function InventoryPage() {
           >
             <h2>Bulk upload inventory</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: 0 }}>
-              Upload a CSV file to add inventory. Quantities will be <strong>added</strong> to existing totals for this building.
+              Upload a CSV file to update inventory for this building.
             </p>
             <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginTop: 0 }}>
-              Required columns: <code>Filter Name</code>, <code>Quantity</code>. Optional: <code>SKU</code>, <code>MinLevel</code>, <code>ReorderQty</code>.
+              Required columns: <code>FilterName</code>, <code>Quantity</code>. Optional: <code>SKU</code>, <code>MinLevel</code>, <code>ReorderQty</code>, <code>Area</code>.
             </p>
             <form onSubmit={handleUpload} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div>
+                <label className="user-form-label">Upload mode</label>
+                <div style={{ display: "flex", gap: "1rem", padding: "0.25rem 0" }}>
+                  <label style={{ display: "flex", gap: "0.4rem", alignItems: "center", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="uploadMode"
+                      value="add"
+                      checked={uploadMode === "add"}
+                      onChange={() => setUploadMode("add")}
+                    />
+                    Add to existing
+                  </label>
+                  <label style={{ display: "flex", gap: "0.4rem", alignItems: "center", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="uploadMode"
+                      value="overwrite"
+                      checked={uploadMode === "overwrite"}
+                      onChange={() => setUploadMode("overwrite")}
+                    />
+                    Overwrite existing
+                  </label>
+                </div>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.78rem", margin: "0.1rem 0 0" }}>
+                  {uploadMode === "overwrite"
+                    ? "Quantities in the CSV replace the current quantities."
+                    : "Quantities in the CSV are added to the current quantities."}
+                </p>
+              </div>
               <input
                 type="file"
                 accept=".csv"
@@ -426,6 +507,20 @@ export default function InventoryPage() {
                   onChange={(e) => { const v = Number(e.target.value); if (!Number.isNaN(v)) setEditReorderQty(v); }}
                   placeholder="0 = not set"
                 />
+              </div>
+              <div>
+                <label className="user-form-label">Area</label>
+                <select
+                  className="inventory-modal-input"
+                  style={{ marginBottom: 0 }}
+                  value={editAreaId}
+                  onChange={(e) => setEditAreaId(e.target.value)}
+                >
+                  <option value="">— Unassigned —</option>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="inventory-modal-actions" style={{ marginTop: "1rem" }}>

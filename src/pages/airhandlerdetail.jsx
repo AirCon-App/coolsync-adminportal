@@ -344,6 +344,11 @@ export default function AirHandlerDetailPage() {
                             Technician: {users.find((u) => u.id === wo.technicianId)?.fullName ?? wo.technicianId}
                           </p>
                         )}
+                        {wo.notes && (
+                          <p className="inventory-subtitle" style={{ marginTop: "0.4rem", whiteSpace: "pre-wrap" }}>
+                            <strong style={{ color: "var(--text-primary)" }}>Notes:</strong> {wo.notes}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );

@@ -14,6 +14,7 @@ import AirHandlerDetailPage from "./pages/airhandlerdetail";
 import ReportingPage from "./pages/ReportingPage";
 import BuildingsPage from "./pages/BuildingsPage";
 import AreasPage from "./pages/AreasPage";
+import SettingsPage from "./pages/SettingsPage";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
               <Route path="/reports" element={<ProtectedRoute><ReportingPage /></ProtectedRoute>} />
               <Route path="/buildings" element={<ProtectedRoute requireRole="SuperAdmin"><BuildingsPage /></ProtectedRoute>} />
               <Route path="/areas" element={<ProtectedRoute><AreasPage /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             </Routes>
           </Router>
         </BuildingProvider>

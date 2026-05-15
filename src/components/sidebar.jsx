@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   SlGrid,
@@ -7,6 +7,7 @@ import {
   SlDrawer,
   SlChart,
   SlLogin,
+  SlMenu,
 } from "react-icons/sl";
 import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper, TbLayoutList } from "react-icons/tb";
 import { useTheme } from "../context/ThemeContext";
@@ -40,6 +41,7 @@ const NAV_GROUPS = [
     label: "Admin",
     items: [
       { to: "/users", label: "Users", icon: SlPeople },
+      { to: "/settings", label: "Settings", icon: SlSettings },
     ],
   },
 ];
@@ -49,6 +51,7 @@ export default function Sidebar() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isSuperAdmin = user?.isSuperAdmin || user?.role === "SuperAdmin";
 
@@ -57,10 +60,46 @@ export default function Sidebar() {
     navigate("/");
   };
 
+  const closeMobile = () => setMobileOpen(false);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setMobileOpen(false); };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileOpen]);
+
   return (
-    <aside className={`sidebar${collapsed ? " sidebar--collapsed" : ""}`}>
+    <>
+      <button
+        className="sidebar-mobile-toggle"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open navigation"
+        aria-expanded={mobileOpen}
+        aria-controls="primary-sidebar"
+      >
+        <SlMenu />
+      </button>
+
+      {mobileOpen && (
+        <div
+          className="sidebar-backdrop sidebar-backdrop--open"
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        id="primary-sidebar"
+        className={`sidebar${collapsed ? " sidebar--collapsed" : ""}${mobileOpen ? " sidebar--mobile-open" : ""}`}
+      >
       <div className="sidebar-header">
-        <NavLink to="/home" className="sidebar-logo">
+        <NavLink to="/home" className="sidebar-logo" onClick={closeMobile}>
           <CoolSyncLogo size={26} />
           {!collapsed && <span className="sidebar-brand">CoolSync</span>}
         </NavLink>
@@ -96,6 +135,7 @@ export default function Sidebar() {
                 <NavLink
                   key={to}
                   to={to}
+                  onClick={closeMobile}
                   className={({ isActive }) =>
                     `sidebar-nav-item${isActive ? " sidebar-nav-item--active" : ""}`
                   }
@@ -125,6 +165,7 @@ export default function Sidebar() {
         </button>
         <NavLink
           to="/usermanagement"
+          onClick={closeMobile}
           className={({ isActive }) =>
             `sidebar-nav-item${isActive ? " sidebar-nav-item--active" : ""}`
           }
@@ -134,12 +175,13 @@ export default function Sidebar() {
         </NavLink>
         <button
           className="sidebar-nav-item sidebar-logout-btn"
-          onClick={handleLogout}
+          onClick={() => { closeMobile(); handleLogout(); }}
         >
           <SlLogin className="sidebar-nav-icon" />
           {!collapsed && <span>Sign out</span>}
         </button>
       </div>
     </aside>
+    </>
   );
 }

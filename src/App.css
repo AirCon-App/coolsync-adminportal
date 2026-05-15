@@ -31,6 +31,14 @@
   /* Sidebar */
   --sidebar-bg:    #0f0f0f;
   --sidebar-border:#1f1f1f;
+  --sidebar-hover: rgba(232, 232, 232, 0.08);
+
+  /* Alerts (semantic surfaces) */
+  --warning:       #f59e0b;
+  --warning-sub:   rgba(245, 158, 11, 0.10);
+  --info:          #38bdf8;
+  --info-sub:      rgba(56, 189, 248, 0.10);
+  --success-sub:   rgba(34, 197, 94, 0.10);
 
   /* Modal backdrop */
   --backdrop:      rgba(0, 0, 0, 0.72);
@@ -68,6 +76,13 @@ html.light {
 
   --sidebar-bg:    #ffffff;
   --sidebar-border:#e5e5e5;
+  --sidebar-hover: rgba(23, 23, 23, 0.06);
+
+  --warning:       #b45309;
+  --warning-sub:   rgba(180, 83, 9, 0.09);
+  --info:          #0369a1;
+  --info-sub:      rgba(3, 105, 161, 0.09);
+  --success-sub:   rgba(22, 163, 74, 0.09);
 
   --backdrop:      rgba(0, 0, 0, 0.35);
 }
@@ -933,6 +948,9 @@ a {
   align-items: center;
   justify-content: center;
   z-index: 40;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .inventory-modal-card {
@@ -944,6 +962,8 @@ a {
   border: 1px solid var(--border);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
   color: var(--text-primary);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
 }
 
 .inventory-modal-card h2 {
@@ -1076,4 +1096,198 @@ a {
 
 h1 {
   margin-left: 0;
+}
+
+/* ============================================================
+   Alerts (semantic, theme-aware)
+   ============================================================ */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.6rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.alert__icon { flex-shrink: 0; line-height: 1.1; font-weight: 700; }
+.alert__body { flex: 1; min-width: 0; }
+.alert__title { display: block; font-weight: 600; margin-bottom: 0.1rem; }
+
+.alert--danger  { background: var(--danger-sub);  border-color: var(--danger);  color: var(--danger); }
+.alert--success { background: var(--success-sub); border-color: var(--success); color: var(--success); }
+.alert--warning { background: var(--warning-sub); border-color: var(--warning); color: var(--warning); }
+.alert--info    { background: var(--info-sub);    border-color: var(--info);    color: var(--info); }
+
+.alert--inline { padding: 0.4rem 0.65rem; font-size: 0.82rem; border-radius: 0.45rem; }
+
+/* ============================================================
+   Mobile sidebar primitives (visible only on small screens)
+   ============================================================ */
+
+.sidebar-mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 30;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+
+.sidebar-mobile-toggle:hover { background: var(--bg-overlay); }
+.sidebar-mobile-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--backdrop);
+  z-index: 18;
+}
+
+/* ============================================================
+   Accessibility — visible focus ring everywhere
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Responsive — tablet (≤900px)
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .page-content {
+    padding: 1.75rem 1.25rem 3rem;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+/* ============================================================
+   Responsive — mobile (≤768px) — off-canvas sidebar
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .sidebar-mobile-toggle { display: inline-flex; }
+
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 0 transparent;
+  }
+
+  .sidebar.sidebar--collapsed {
+    width: 280px;
+    min-width: 280px;
+  }
+
+  .sidebar.sidebar--mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .sidebar .sidebar-collapse-btn { display: none; }
+
+  .sidebar--mobile-open ~ .sidebar-backdrop,
+  .sidebar-backdrop.sidebar-backdrop--open { display: block; }
+
+  .page-content {
+    margin-left: 0 !important;
+    padding: 4rem 1rem 3rem;
+  }
+
+  .app-layout:has(.sidebar--collapsed) .page-content {
+    margin-left: 0;
+  }
+
+  /* Modal — full width minus gutters, scroll inside backdrop */
+  .inventory-modal-backdrop { padding: 0.75rem; align-items: flex-start; padding-top: 1.5rem; }
+  .inventory-modal-card { max-width: 100% !important; padding: 1.25rem 1.1rem 1.1rem; border-radius: 0.85rem; }
+
+  /* Toolbar — full width search above filters */
+  .table-toolbar { gap: 0.5rem; }
+  .table-search { flex: 1 1 100%; min-width: 0; }
+  .table-filter-select,
+  .inventory-button { flex: 1 1 auto; }
+
+  /* Tables stay scrollable — already wrapped by .data-table-wrap */
+  .data-table th,
+  .data-table td { padding: 0.55rem 0.7rem; }
+
+  /* Dashboard headings tighter */
+  .dashboard-title { font-size: 1.35rem; }
+  .stat-card-value { font-size: 1.55rem; }
+  .stat-card { padding: 1rem 1.1rem; }
+
+  /* Building switcher dropdown spans full width inside drawer */
+  .building-switcher-dropdown { left: 0.6rem; right: 0.6rem; }
+}
+
+/* ============================================================
+   Responsive — small mobile (≤480px)
+   ============================================================ */
+
+@media (max-width: 480px) {
+  .page-content { padding: 4rem 0.75rem 2.5rem; }
+
+  .login-box { padding: 1.5rem 1.25rem; }
+  .login-title { font-size: 1.5rem; }
+
+  .inventory-list { grid-template-columns: 1fr; }
+  .stat-grid { grid-template-columns: 1fr; }
+  .quick-actions { grid-template-columns: 1fr; }
+
+  .inventory-modal-actions { flex-direction: column-reverse; align-items: stretch; }
+  .inventory-modal-actions .button { width: 100%; }
+
+  .data-table { font-size: 0.82rem; }
+}
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

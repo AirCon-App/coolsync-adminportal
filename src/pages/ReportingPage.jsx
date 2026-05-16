@@ -157,9 +157,8 @@ function ReportCard({ title, buildingName, children, onExport, onEmail, lowStock
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function ReportingPage() {
-  const { buildings, activeBuilding } = useBuilding();
+  const { activeBuilding } = useBuilding();
   const { user: authUser } = useAuth();
-  const [selectedBuilding, setSelectedBuilding] = useState("");
   const [airHandlers, setAirHandlers] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -186,13 +185,6 @@ export default function ReportingPage() {
     return `${fmt(dateFrom)} – ${fmt(dateTo)}`;
   }
 
-  // Sync selectedBuilding with activeBuilding from context
-  useEffect(() => {
-    if (activeBuilding && !selectedBuilding) {
-      setSelectedBuilding(String(activeBuilding.buildingId));
-    }
-  }, [activeBuilding]);
-
   // Phase 1: fetch users + catalog once on mount
   useEffect(() => {
     const fetchInit = async () => {
@@ -212,17 +204,18 @@ export default function ReportingPage() {
     fetchInit();
   }, []);
 
-  // Phase 2: fetch building-specific data when selectedBuilding changes
+  // Phase 2: fetch building-specific data when activeBuilding changes
   useEffect(() => {
-    if (!selectedBuilding) return;
+    if (!activeBuilding) return;
     const fetchBuildingData = async () => {
       setBuildingLoading(true);
       setError(null);
       try {
+        const bid = activeBuilding.buildingId;
         const [ahRes, woRes, invRes] = await Promise.all([
-          api.get(`/AirHandlers?buildingId=${selectedBuilding}`),
-          api.get(`/WorkOrders?buildingId=${selectedBuilding}`),
-          api.get(`/Inventory?buildingId=${selectedBuilding}`),
+          api.get(`/AirHandlers?buildingId=${bid}`),
+          api.get(`/WorkOrders?buildingId=${bid}`),
+          api.get(`/Inventory?buildingId=${bid}`),
         ]);
         setAirHandlers(ahRes.data);
         setWorkOrders(woRes.data);
@@ -234,7 +227,7 @@ export default function ReportingPage() {
       }
     };
     fetchBuildingData();
-  }, [selectedBuilding]);
+  }, [activeBuilding]);
 
   // ─── Lookup maps ────────────────────────────────────────────────────────
 
@@ -429,7 +422,7 @@ export default function ReportingPage() {
 
   // ─── PDF export ─────────────────────────────────────────────────────────
 
-  const selectedBuildingName = buildings.find((b) => String(b.buildingId) === selectedBuilding)?.name ?? "";
+  const selectedBuildingName = activeBuilding?.name ?? "";
   const today = new Date().toLocaleDateString();
 
   function buildFilterActivityPdfDoc() {
@@ -556,32 +549,26 @@ export default function ReportingPage() {
     );
   }
 
+  if (!activeBuilding) {
+    return (
+      <PageShell>
+        <div style={{ width: "100%", maxWidth: 960 }}>
+          <h1 style={{ color: "var(--text-primary)", margin: "0 0 0.5rem" }}>Reports</h1>
+          <p style={{ color: "var(--text-muted)" }}>Select a building from the sidebar to view reports.</p>
+        </div>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
       <div style={{ width: "100%", maxWidth: 960 }}>
 
           {/* Page header */}
           <div style={{ marginBottom: "1.75rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {/* Title + property selector row */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-              <div>
-                <h1 style={{ color: "var(--text-primary)", margin: "0 0 0.2rem" }}>Reports</h1>
-                <p style={{ color: "var(--text-secondary)", margin: 0, fontSize: "0.9rem" }}>Filter activity and inventory reporting by property.</p>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                <label style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>Property</label>
-                <select
-                  className="inventory-modal-input"
-                  value={selectedBuilding}
-                  onChange={(e) => setSelectedBuilding(e.target.value)}
-                  style={{ marginBottom: 0, width: "auto", minWidth: 180 }}
-                >
-                  {buildings.length === 0 && <option value="">No buildings available</option>}
-                  {buildings.map((b) => (
-                    <option key={b.buildingId} value={b.buildingId}>{b.name}</option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <h1 style={{ color: "var(--text-primary)", margin: "0 0 0.2rem" }}>Reports</h1>
+              <p style={{ color: "var(--text-secondary)", margin: 0, fontSize: "0.9rem" }}>Filter activity and inventory reporting.</p>
             </div>
             {/* Period selector */}
             <div style={{ padding: "0.6rem 0.85rem", background: "var(--bg-subtle)", borderRadius: "0.6rem", border: "1px solid var(--border)" }}>
@@ -594,7 +581,7 @@ export default function ReportingPage() {
             <div className="inventory-item" style={{ flexDirection: "column", borderColor: "var(--danger)", marginBottom: "1.5rem" }}>
               <p style={{ color: "var(--danger)", margin: "0 0 0.5rem", fontWeight: 600 }}>Error loading data</p>
               <p style={{ color: "var(--text-secondary)", margin: "0 0 0.75rem", fontSize: "0.9rem" }}>{error}</p>
-              <button className="button" onClick={() => setSelectedBuilding((s) => s)} style={{ alignSelf: "flex-start", padding: "0.4rem 1rem", fontSize: "0.85rem" }}>
+              <button className="button" onClick={() => window.location.reload()} style={{ alignSelf: "flex-start", padding: "0.4rem 1rem", fontSize: "0.85rem" }}>
                 Retry
               </button>
             </div>

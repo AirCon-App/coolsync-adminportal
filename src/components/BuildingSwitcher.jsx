@@ -24,11 +24,12 @@ export default function BuildingSwitcher({ collapsed }) {
   const isSuperAdmin = user?.isSuperAdmin || user?.role === "SuperAdmin";
 
   return (
-    <div className="building-switcher" ref={ref}>
+    <div className="building-switcher" ref={ref} data-testid="building-switcher">
       <button
         className={`building-switcher-btn${open ? " building-switcher-btn--open" : ""}`}
         onClick={() => setOpen((o) => !o)}
         title={collapsed ? activeBuilding.name : undefined}
+        data-testid="building-dropdown-toggle"
       >
         <TbBuilding className="building-switcher-icon" />
         {!collapsed && (
@@ -41,6 +42,7 @@ export default function BuildingSwitcher({ collapsed }) {
 
       {open && !collapsed && (
         <div className="building-switcher-dropdown">
+          <div className="building-switcher-section-label">Switch view to:</div>
           {buildings.map((b) => (
             <button
               key={b.buildingId}
@@ -49,6 +51,7 @@ export default function BuildingSwitcher({ collapsed }) {
                 setActiveBuilding(b);
                 setOpen(false);
               }}
+              data-testid={`building-option-${b.buildingId}`}
             >
               {b.buildingId === activeBuilding.buildingId && (
                 <span className="building-switcher-check">✓</span>

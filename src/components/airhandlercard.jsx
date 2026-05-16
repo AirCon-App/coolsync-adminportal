@@ -6,7 +6,7 @@ export default function AirHandlerCard({ name, subtitle, guid }) {
   const navigate = useNavigate();
 
   return (
-    <div className="inventory-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/airhandlers/${guid}`)}>
+    <div className="inventory-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/airhandlers/${guid}`)} data-testid={`airhandler-card-${guid}`}>
       <div>
         <h1 className="inventory-title">{name}</h1>
         <p className="inventory-subtitle">{subtitle}</p>

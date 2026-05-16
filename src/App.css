@@ -404,6 +404,15 @@ a {
   margin: 0.3rem 0;
 }
 
+.building-switcher-section-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 0.35rem 0.6rem 0.25rem;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -512,6 +521,24 @@ a {
   padding: 2.5rem 2rem 4rem;
   transition: margin-left 0.2s ease;
   color: var(--text-primary);
+}
+
+.building-context-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  margin-bottom: 1rem;
+  background: var(--accent-sub);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.building-context-bar strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .app-layout:has(.sidebar--collapsed) .page-content {

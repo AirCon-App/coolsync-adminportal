@@ -17,29 +17,19 @@ import BuildingSwitcher from "./BuildingSwitcher";
 
 const NAV_GROUPS = [
   {
-    label: "Overview",
+    label: "Building Data",
     items: [
       { to: "/home", label: "Dashboard", icon: SlGrid },
-    ],
-  },
-  {
-    label: "Property",
-    items: [
-      { to: "/buildings", label: "Buildings", icon: TbBuildingSkyscraper, superAdminOnly: true },
       { to: "/airhandlers", label: "Air Handlers", icon: TbAirConditioning },
-      { to: "/areas", label: "Areas", icon: TbLayoutList },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
       { to: "/inventory", label: "Inventory", icon: SlDrawer },
+      { to: "/areas", label: "Areas", icon: TbLayoutList },
       { to: "/reports", label: "Reports", icon: SlChart },
     ],
   },
   {
     label: "Admin",
     items: [
+      { to: "/buildings", label: "Buildings", icon: TbBuildingSkyscraper, superAdminOnly: true },
       { to: "/users", label: "Users", icon: SlPeople },
       { to: "/settings", label: "Settings", icon: SlSettings },
     ],
@@ -82,6 +72,7 @@ export default function Sidebar() {
         aria-label="Open navigation"
         aria-expanded={mobileOpen}
         aria-controls="primary-sidebar"
+        data-testid="mobile-menu-toggle"
       >
         <SlMenu />
       </button>
@@ -139,6 +130,7 @@ export default function Sidebar() {
                   className={({ isActive }) =>
                     `sidebar-nav-item${isActive ? " sidebar-nav-item--active" : ""}`
                   }
+                  data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
                 >
                   <Icon className="sidebar-nav-icon" />
                   {!collapsed && <span>{label}</span>}
@@ -154,6 +146,7 @@ export default function Sidebar() {
           className="sidebar-nav-item sidebar-theme-btn"
           onClick={toggle}
           aria-label="Toggle theme"
+          data-testid="theme-toggle"
         >
           {theme === "dark"
             ? <TbSun className="sidebar-nav-icon" />
@@ -176,6 +169,7 @@ export default function Sidebar() {
         <button
           className="sidebar-nav-item sidebar-logout-btn"
           onClick={() => { closeMobile(); handleLogout(); }}
+          data-testid="logout-button"
         >
           <SlLogin className="sidebar-nav-icon" />
           {!collapsed && <span>Sign out</span>}

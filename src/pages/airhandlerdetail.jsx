@@ -4,10 +4,7 @@ import { SlArrowLeft } from "react-icons/sl";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
 
-// ── Calendar helpers ────────────────────────────────────────────────────────
-
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+// ── Agenda helpers ──────────────────────────────────────────────────────────
 
 function woStatus(wo) {
   const now = new Date();
@@ -34,55 +31,50 @@ const STATUS_LABEL = {
   completed: "Completed",
 };
 
-function CalendarView({ workOrders, users }) {
-  const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
-  const [tooltip, setTooltip] = useState(null);
-
+function AgendaView({ workOrders, users }) {
   const userMap = useMemo(() => {
     const m = {};
     (users || []).forEach((u) => { m[u.id] = u.fullName || u.email || "Unassigned"; });
     return m;
   }, [users]);
 
-  const eventsByDay = useMemo(() => {
-    const map = {};
-    workOrders.forEach((wo) => {
-      const dateStr = wo.activityDate ?? wo.completedDate ?? wo.dueDate;
-      if (!dateStr) return;
-      const d = new Date(dateStr);
-      if (d.getFullYear() !== year || d.getMonth() !== month) return;
-      const day = d.getDate();
-      if (!map[day]) map[day] = [];
-      map[day].push(wo);
-    });
-    return map;
-  }, [workOrders, year, month]);
+  const upcomingOrders = useMemo(() => {
+    const now = new Date();
+    return workOrders
+      .filter((wo) => !wo.completedDate && !wo.activityDate)
+      .sort((a, b) => {
+        const aDate = a.dueDate ? new Date(a.dueDate) : new Date(9999, 0);
+        const bDate = b.dueDate ? new Date(b.dueDate) : new Date(9999, 0);
+        return aDate - bDate;
+      });
+  }, [workOrders]);
 
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const formatRelativeDate = (dateStr) => {
+    if (!dateStr) return "No due date";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
 
-  const prevMonth = () => {
-    if (month === 0) { setYear(y => y - 1); setMonth(11); }
-    else setMonth(m => m - 1);
-  };
-  const nextMonth = () => {
-    if (month === 11) { setYear(y => y + 1); setMonth(0); }
-    else setMonth(m => m + 1);
+    if (diffDays < 0) return `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? "s" : ""} overdue`;
+    if (diffDays === 0) return "Due today";
+    if (diffDays === 1) return "Due tomorrow";
+    if (diffDays <= 7) return `Due in ${diffDays} days`;
+    return `Due ${date.toLocaleDateString()}`;
   };
 
-  const cells = [];
-  for (let i = 0; i < firstDay; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-  const isToday = (d) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  if (upcomingOrders.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+        <p style={{ fontSize: "0.95rem" }}>No upcoming filter changes scheduled.</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div>
       {/* Legend */}
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-        {Object.entries(STATUS_COLOR).map(([key, color]) => (
+        {Object.entries(STATUS_COLOR).filter(([k]) => k !== "completed").map(([key, color]) => (
           <div key={key} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.78rem", color: "var(--text-secondary)" }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
             {STATUS_LABEL[key]}
@@ -90,112 +82,52 @@ function CalendarView({ workOrders, users }) {
         ))}
       </div>
 
-      {/* Nav */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-        <button onClick={prevMonth} style={{ background: "none", border: "1px solid var(--border)", borderRadius: 6, padding: "0.25rem 0.6rem", cursor: "pointer", color: "var(--text-primary)" }}>‹</button>
-        <span style={{ fontWeight: 600, color: "var(--text-primary)", minWidth: 150, textAlign: "center" }}>{MONTHS[month]} {year}</span>
-        <button onClick={nextMonth} style={{ background: "none", border: "1px solid var(--border)", borderRadius: 6, padding: "0.25rem 0.6rem", cursor: "pointer", color: "var(--text-primary)" }}>›</button>
-      </div>
-
-      {/* Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-        {DAYS.map((d) => (
-          <div key={d} style={{ textAlign: "center", fontSize: "0.72rem", fontWeight: 700, color: "var(--text-muted)", padding: "0.3rem 0", textTransform: "uppercase" }}>{d}</div>
-        ))}
-        {cells.map((day, i) => {
-          if (!day) return <div key={`empty-${i}`} />;
-          const events = eventsByDay[day] || [];
-          const isT = isToday(day);
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {upcomingOrders.map((wo) => {
+          const status = woStatus(wo);
+          const color = STATUS_COLOR[status];
           return (
             <div
-              key={day}
+              key={wo.id}
               style={{
-                minHeight: 62,
-                border: `1px solid ${isT ? "var(--primary, #3b82f6)" : "var(--border)"}`,
-                borderRadius: 6,
-                padding: "0.3rem",
-                background: isT ? "var(--bg-subtle)" : "transparent",
-                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
+                padding: "1rem",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                borderLeft: `4px solid ${color}`,
+                background: "var(--bg-card)",
               }}
             >
-              <div style={{ fontSize: "0.75rem", fontWeight: isT ? 700 : 400, color: isT ? "var(--primary, #3b82f6)" : "var(--text-muted)", marginBottom: 2 }}>{day}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {events.slice(0, 3).map((wo) => {
-                  const status = woStatus(wo);
-                  const color = STATUS_COLOR[status];
-                  return (
-                    <div
-                      key={wo.id}
-                      title={`Work Order #${wo.id} — ${STATUS_LABEL[status]}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTooltip(tooltip?.id === wo.id ? null : { ...wo, status, _x: e.clientX, _y: e.clientY });
-                      }}
-                      style={{
-                        background: color,
-                        color: "#fff",
-                        borderRadius: 3,
-                        padding: "1px 4px",
-                        fontSize: "0.65rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      #{wo.id} {STATUS_LABEL[status]}
-                    </div>
-                  );
-                })}
-                {events.length > 3 && (
-                  <div style={{ fontSize: "0.62rem", color: "var(--text-muted)" }}>+{events.length - 3} more</div>
-                )}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.35rem" }}>
+                  <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem" }}>
+                    Work Order #{wo.id}
+                  </span>
+                  <span style={{
+                    background: color,
+                    color: "#fff",
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                    fontSize: "0.72rem",
+                    fontWeight: 600
+                  }}>
+                    {STATUS_LABEL[status]}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                  <span><strong style={{ color: "var(--text-primary)" }}>Due:</strong> {formatRelativeDate(wo.dueDate)}</span>
+                  {wo.count != null && <span><strong style={{ color: "var(--text-primary)" }}>Filters:</strong> {wo.count}</span>}
+                  {wo.technicianId && (
+                    <span><strong style={{ color: "var(--text-primary)" }}>Assigned:</strong> {userMap[wo.technicianId] ?? "Unassigned"}</span>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          onClick={() => setTooltip(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 50 }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "fixed",
-              top: Math.min(tooltip._y + 10, window.innerHeight - 220),
-              left: Math.min(tooltip._x + 10, window.innerWidth - 270),
-              width: 250,
-              background: "var(--bg-card, #fff)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: "0.85rem 1rem",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-              zIndex: 51,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-              <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.9rem" }}>Work Order #{tooltip.id}</span>
-              <span style={{ background: STATUS_COLOR[tooltip.status], color: "#fff", borderRadius: 4, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 600 }}>{STATUS_LABEL[tooltip.status]}</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-              {tooltip.dueDate && <div><strong style={{ color: "var(--text-primary)" }}>Due:</strong> {new Date(tooltip.dueDate).toLocaleDateString()}</div>}
-              {(tooltip.completedDate || tooltip.activityDate) && (
-                <div><strong style={{ color: "var(--text-primary)" }}>Completed:</strong> {new Date(tooltip.activityDate ?? tooltip.completedDate).toLocaleDateString()}</div>
-              )}
-              {tooltip.count != null && <div><strong style={{ color: "var(--text-primary)" }}>Filters:</strong> {tooltip.count}</div>}
-              {tooltip.technicianId && <div><strong style={{ color: "var(--text-primary)" }}>Technician:</strong> {userMap[tooltip.technicianId] ?? tooltip.technicianId}</div>}
-            </div>
-            <button onClick={() => setTooltip(null)} style={{ marginTop: "0.6rem", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: 0 }}>
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -232,7 +164,7 @@ export default function AirHandlerDetailPage() {
 
   const tabs = [
     { id: "workorders", label: "Work Orders" },
-    { id: "calendar", label: "Calendar" },
+    { id: "upcoming", label: "Upcoming" },
   ];
 
   return (
@@ -358,9 +290,9 @@ export default function AirHandlerDetailPage() {
           </>
         )}
 
-        {/* Calendar Tab */}
-        {activeTab === "calendar" && (
-          <CalendarView workOrders={handler.workOrders ?? []} users={users} />
+        {/* Upcoming Tab */}
+        {activeTab === "upcoming" && (
+          <AgendaView workOrders={handler.workOrders ?? []} users={users} />
         )}
       </div>
     </PageShell>

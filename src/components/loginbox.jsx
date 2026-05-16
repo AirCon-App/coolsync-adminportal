@@ -48,6 +48,7 @@ export default function LoginBox() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            data-testid="email-input"
           />
           <p className="login-text">Password</p>
           <input
@@ -57,9 +58,10 @@ export default function LoginBox() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            data-testid="password-input"
           />
-          {error && <p className="error">{error}</p>}
-          <button className="button" type="submit">
+          {error && <p className="error" data-testid="login-error">{error}</p>}
+          <button className="button" type="submit" data-testid="login-button">
             Submit
           </button>
         </form>

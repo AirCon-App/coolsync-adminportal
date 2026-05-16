@@ -41,7 +41,6 @@ export default function InventoryPage() {
   const [sortDir, setSortDir] = useState("asc");
   const [areas, setAreas] = useState([]);
   const [editAreaId, setEditAreaId] = useState("");
-  const [uploadMode, setUploadMode] = useState("add");
   const { activeBuilding } = useBuilding();
 
   useEffect(() => {
@@ -108,7 +107,7 @@ export default function InventoryPage() {
       const areaIdValue = editAreaId === "" ? null : Number(editAreaId);
       await api.put(`/Inventory/${editItem.itemNumber}`, {
         itemNumber: editItem.itemNumber,
-        catalogItemId: editItem.catalogItem.catalogItemId,
+        catalogItemId: editItem.catalogItem?.catalogItemId,
         buildingId: editItem.buildingId,
         quantity: editQty,
         minLevel: editMinLevel,
@@ -145,7 +144,7 @@ export default function InventoryPage() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      const res = await api.post(`/Inventory/upload?buildingId=${activeBuilding.buildingId}&mode=${uploadMode}`, formData, {
+      const res = await api.post(`/Inventory/upload?buildingId=${activeBuilding.buildingId}&mode=add`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadStatus(res.data.message || "Upload successful.");
@@ -174,8 +173,8 @@ export default function InventoryPage() {
     if (q) {
       rows = rows.filter(
         (item) =>
-          item.catalogItem.name?.toLowerCase().includes(q) ||
-          item.catalogItem.sku?.toLowerCase().includes(q)
+          item.catalogItem?.name?.toLowerCase().includes(q) ||
+          item.catalogItem?.sku?.toLowerCase().includes(q)
       );
     }
 
@@ -201,11 +200,11 @@ export default function InventoryPage() {
         return sortDir === "asc" ? av - bv : bv - av;
       }
       if (sortKey === "sku") {
-        av = (a.catalogItem.sku ?? "").toLowerCase();
-        bv = (b.catalogItem.sku ?? "").toLowerCase();
+        av = (a.catalogItem?.sku ?? "").toLowerCase();
+        bv = (b.catalogItem?.sku ?? "").toLowerCase();
       } else {
-        av = (a.catalogItem.name ?? "").toLowerCase();
-        bv = (b.catalogItem.name ?? "").toLowerCase();
+        av = (a.catalogItem?.name ?? "").toLowerCase();
+        bv = (b.catalogItem?.name ?? "").toLowerCase();
       }
       if (av < bv) return sortDir === "asc" ? -1 : 1;
       if (av > bv) return sortDir === "asc" ? 1 : -1;
@@ -242,11 +241,13 @@ export default function InventoryPage() {
             placeholder="Search by name or SKU…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            data-testid="inventory-search"
           />
           <select
             className="table-filter-select"
             value={stockFilter}
             onChange={(e) => setStockFilter(e.target.value)}
+            data-testid="stock-filter"
           >
             <option value="all">All stock levels</option>
             <option value="in">In stock</option>
@@ -256,6 +257,7 @@ export default function InventoryPage() {
             className="table-filter-select"
             value={areaFilter}
             onChange={(e) => setAreaFilter(e.target.value)}
+            data-testid="area-filter"
           >
             <option value="all">All areas</option>
             <option value="none">Unassigned</option>
@@ -269,13 +271,13 @@ export default function InventoryPage() {
           <button className="inventory-button inventory-button--secondary" onClick={handleOpenUpload}>
             Bulk Upload
           </button>
-          <button className="inventory-button" onClick={handleOpenAdd}>
+          <button className="inventory-button" onClick={handleOpenAdd} data-testid="add-inventory-button">
             <span>+</span> Add Inventory Item
           </button>
         </div>
 
         <div className="data-table-wrap">
-          <table className="data-table">
+          <table className="data-table" data-testid="inventory-table">
             <thead>
               <tr>
                 <th onClick={() => handleSort("name")}>Item name <SortIcon col="name" /></th>
@@ -301,9 +303,10 @@ export default function InventoryPage() {
                   key={item.itemNumber}
                   className="data-table-row"
                   onClick={() => handleOpenEdit(item)}
+                  data-testid={`inventory-row-${item.itemNumber}`}
                 >
-                  <td className="td-primary">{item.catalogItem.name}</td>
-                  <td className="td-mono">{item.catalogItem.sku || <span className="td-empty">—</span>}</td>
+                  <td className="td-primary">{item.catalogItem?.name || <span className="td-empty">Unknown</span>}</td>
+                  <td className="td-mono">{item.catalogItem?.sku || <span className="td-empty">—</span>}</td>
                   <td>{item.areaName || <span className="td-empty">—</span>}</td>
                   <td>{item.quantity}</td>
                   <td>{item.minLevel > 0 ? item.minLevel : <span className="td-empty">—</span>}</td>
@@ -382,47 +385,59 @@ export default function InventoryPage() {
         <div className="inventory-modal-backdrop" onClick={() => setShowUploadModal(false)}>
           <div
             className="inventory-modal-card"
-            style={{ maxWidth: 460 }}
+            style={{ maxWidth: 500 }}
             onClick={(e) => e.stopPropagation()}
           >
             <h2>Bulk upload inventory</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: 0 }}>
               Upload a CSV file to update inventory for this building.
             </p>
+
+            <div
+              style={{
+                background: "rgba(59, 130, 246, 0.08)",
+                border: "1px solid rgba(59, 130, 246, 0.25)",
+                borderRadius: 8,
+                padding: "0.85rem 1rem",
+                marginBottom: "1rem",
+              }}
+              role="alert"
+              aria-live="polite"
+            >
+              <p style={{ color: "var(--text-primary)", fontSize: "0.85rem", fontWeight: 600, margin: "0 0 0.5rem" }}>
+                How this upload works
+              </p>
+              <ul style={{ color: "var(--text-secondary)", fontSize: "0.82rem", margin: 0, paddingLeft: "1.1rem", lineHeight: 1.6 }}>
+                <li><strong>Existing items:</strong> Quantities are <em>added</em> to current stock (e.g., 10 on hand + 5 in CSV = 15 total)</li>
+                <li><strong>New items:</strong> Items not in inventory are created with the uploaded quantity</li>
+                <li><strong>Min Level / Reorder Qty:</strong> Updated if provided, otherwise unchanged</li>
+              </ul>
+            </div>
+
             <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginTop: 0 }}>
               Required columns: <code>FilterName</code>, <code>Quantity</code>. Optional: <code>SKU</code>, <code>MinLevel</code>, <code>ReorderQty</code>, <code>Area</code>.
             </p>
+            {data.length > 0 && (
+              <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginTop: 0 }}>
+                Need the right format?{" "}
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--primary)",
+                    cursor: "pointer",
+                    fontSize: "inherit",
+                    padding: 0,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Download your current inventory as a template
+                </button>
+              </p>
+            )}
             <form onSubmit={handleUpload} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div>
-                <label className="user-form-label">Upload mode</label>
-                <div style={{ display: "flex", gap: "1rem", padding: "0.25rem 0" }}>
-                  <label style={{ display: "flex", gap: "0.4rem", alignItems: "center", cursor: "pointer" }}>
-                    <input
-                      type="radio"
-                      name="uploadMode"
-                      value="add"
-                      checked={uploadMode === "add"}
-                      onChange={() => setUploadMode("add")}
-                    />
-                    Add to existing
-                  </label>
-                  <label style={{ display: "flex", gap: "0.4rem", alignItems: "center", cursor: "pointer" }}>
-                    <input
-                      type="radio"
-                      name="uploadMode"
-                      value="overwrite"
-                      checked={uploadMode === "overwrite"}
-                      onChange={() => setUploadMode("overwrite")}
-                    />
-                    Overwrite existing
-                  </label>
-                </div>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.78rem", margin: "0.1rem 0 0" }}>
-                  {uploadMode === "overwrite"
-                    ? "Quantities in the CSV replace the current quantities."
-                    : "Quantities in the CSV are added to the current quantities."}
-                </p>
-              </div>
               <input
                 type="file"
                 accept=".csv"
@@ -469,7 +484,7 @@ export default function InventoryPage() {
             <h2>Edit inventory item</h2>
             <p style={{ marginTop: 0 }}>
               <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>
-                {editItem.catalogItem.name}
+                {editItem.catalogItem?.name || "Unknown Item"}
               </span>
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

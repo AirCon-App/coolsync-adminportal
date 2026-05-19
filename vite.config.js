@@ -15,5 +15,16 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            pdf: ["jspdf", "jspdf-autotable"],
+            vendor: ["react", "react-dom", "react-router-dom"],
+            axios: ["axios"],
+          },
+        },
+      },
+    },
   };
 });

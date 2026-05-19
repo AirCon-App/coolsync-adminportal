@@ -5,33 +5,44 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "screenshots": "playwright test e2e/screenshots.spec.js --headed --project=chromium",
+    "screenshots:headless": "playwright test e2e/screenshots.spec.js --project=chromium"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "axios": "^1.13.6",
+    "chart.js": "^4.5.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "react": "^19.1.1",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.1.1",
     "react-icons": "^5.5.0",
-    "react-router-dom": "^7.9.3"
+    "react-router-dom": "^7.9.3",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0",
     "@eslint/js": "^9.33.0",
+    "@playwright/test": "^1.52.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
+    "dotenv": "^17.4.2",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "typescript": "^6.0.3",
     "vite": "^7.1.2"
   }
 }

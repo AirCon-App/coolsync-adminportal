@@ -10,7 +10,7 @@ interface Recipient {
 interface EmailReportModalProps {
   buildingId: number;
   reportType: string;
-  getPdfBase64: () => string;
+  getPdfBase64: () => Promise<string>;
   buildingName: string;
   dateRange: string;
   onClose: () => void;
@@ -48,7 +48,7 @@ export default function EmailReportModal({ buildingId, reportType, getPdfBase64,
     setSending(true);
     setError(null);
     try {
-      const pdfBase64 = getPdfBase64();
+      const pdfBase64 = await getPdfBase64();
       await api.post("/Reports/email", {
         recipientIds: [...selected],
         pdfBase64,

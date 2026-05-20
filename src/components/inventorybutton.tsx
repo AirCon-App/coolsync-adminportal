@@ -1,28 +1,48 @@
-import React, { useState } from "react";
+import { useState, ChangeEvent, MouseEvent } from "react";
 import { SlArrowRight } from "react-icons/sl";
+import api from "../data/api";
 
-export default function inventorybutton(props) {
+interface InventoryButtonProps {
+  itemNumber: number;
+  catalogItemId: number;
+  buildingId: number;
+  title: string;
+  quantity?: number;
+  onQuantityUpdate?: (itemNumber: number, quantity: number) => void;
+}
+
+export default function InventoryButton(props: InventoryButtonProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [quantity, setQuantity] = useState(props.quantity ?? 0);
 
-  const handleOpen = () => {
-    setIsEditing(true);
+  const handleOpen = () => setIsEditing(true);
+  const handleClose = () => setIsEditing(false);
+
+  const handleSave = async () => {
+    try {
+      await api.put(`/Inventory/${props.itemNumber}`, {
+        itemNumber: props.itemNumber,
+        catalogItemId: props.catalogItemId,
+        buildingId: props.buildingId,
+        quantity: quantity,
+      });
+
+      if (props.onQuantityUpdate) {
+        props.onQuantityUpdate(props.itemNumber, quantity);
+      }
+
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Failed to update inventory:", err);
+    }
   };
 
-  const handleClose = () => {
-    setIsEditing(false);
-  };
-
-  const handleSave = () => {
-    // In the future you can call an API or parent callback here.
-    setIsEditing(false);
-  };
-
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
-    if (Number.isNaN(value)) return;
-    setQuantity(value);
+    if (!Number.isNaN(value)) setQuantity(value);
   };
+
+  const stopPropagation = (e: MouseEvent) => e.stopPropagation();
 
   return (
     <>
@@ -36,17 +56,14 @@ export default function inventorybutton(props) {
 
       {isEditing && (
         <div className="inventory-modal-backdrop" onClick={handleClose}>
-          <div
-            className="inventory-modal-card"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="inventory-modal-card" onClick={stopPropagation}>
             <h2>Update quantity</h2>
             <p>
-              <span style={{ fontWeight: 500, color: "#e5e7eb" }}>
+              <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>
                 {props.title}
               </span>
               <br />
-              <span style={{ color: "#9ca3af" }}>
+              <span style={{ color: "var(--text-secondary)" }}>
                 Adjust the quantity for this inventory item.
               </span>
             </p>

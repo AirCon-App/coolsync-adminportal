@@ -1,14 +1,12 @@
-import React from "react";
 import { Link } from "react-router-dom";
+import logo from "../assets/coolsync white no text.png";
 
 export default function Navbar() {
   return (
     <div className="navbar-container">
       <div className="navbar-content">
         <Link to="/home" className="navbar-logo">
-          <img
-            src="src/assets/coolsync white no text.png"
-          />
+          <img src={logo} alt="CoolSync" />
         </Link>
         <h2 className="navbar-tenant">Caesar's Superdome</h2>
         <div className="list-content">
@@ -21,6 +19,9 @@ export default function Navbar() {
             </li>
             <li>
               <Link to="/users">Users</Link>
+            </li>
+            <li>
+              <Link to="/reports">Reporting</Link>
             </li>
           </ul>
         </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import PageShell from "../components/PageShell";
 import { useBuilding } from "../context/BuildingContext";
-import { reportTemplatesApi, reportSchedulesApi, recipientsApi } from "../api/reports";
+import { reportTemplatesApi, reportSchedulesApi, recipientsApi } from "../data/reports-api";
 import type {
   ReportTemplate,
   ReportField,
@@ -681,9 +681,9 @@ export default function ReportBuilderPage() {
         </p>
 
         {error && (
-          <div style={{ background: "var(--danger-sub)", color: "var(--danger)", padding: "0.75rem 1rem", borderRadius: "0.5rem", marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>{error}</span>
-            <button onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "1.1rem" }}>×</button>
+          <div className="alert alert--danger" style={{ marginBottom: "1rem", justifyContent: "space-between" }}>
+            <span className="alert__body">{error}</span>
+            <button onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "1.1rem", padding: 0, lineHeight: 1 }}>×</button>
           </div>
         )}
 

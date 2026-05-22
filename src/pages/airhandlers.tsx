@@ -2,7 +2,14 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { getErrorMessage } from "../utils/apiError";
 import { useBuilding } from "../context/BuildingContext";
+import { useAuth } from "../context/AuthContext";
+import { Pagination } from "../components/Pagination";
+
+interface AirHandler { id: number; airHandlerGuid: string; name: string; description?: string; filtersName?: string; sku?: string; quantity?: number; scheduleChangeInterval?: string; areaLabel?: string; }
+interface CatalogItem { catalogItemId: number; name: string; sku?: string; }
+interface BuildingArea { id: number; name: string; }
 
 const EMPTY_FORM = {
   name: "",
@@ -19,48 +26,83 @@ const EMPTY_FORM = {
 
 const UNGROUPED_KEY = "__ungrouped__";
 
+const PAGE_SIZE = 25;
+
 export default function AirHandlersPage() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<AirHandler[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [addError, setAddError] = useState(null);
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadStatus, setUploadStatus] = useState(null);
-  const [uploadError, setUploadError] = useState(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
-  const [catalogItems, setCatalogItems] = useState([]);
-  const [collapsedGroups, setCollapsedGroups] = useState({});
-  const [areaLabelSuggestions, setAreaLabelSuggestions] = useState([]);
-  const [buildingAreas, setBuildingAreas] = useState([]);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [areaLabelSuggestions, setAreaLabelSuggestions] = useState<string[]>([]);
+  const [buildingAreas, setBuildingAreas] = useState<BuildingArea[]>([]);
+  const [backfillResult, setBackfillResult] = useState<{ matched: number; unmatched: number } | null>(null);
+  const [backfillError, setBackfillError] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
   const navigate = useNavigate();
   const { activeBuilding } = useBuilding();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.isSuperAdmin || user?.role === "SuperAdmin";
+
+  useEffect(() => { setPage(1); }, [activeBuilding]);
 
   useEffect(() => {
     if (!activeBuilding) return;
-    api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`).then((res) => {
-      setData(res.data);
-      const labels = [...new Set(res.data.map((ah) => ah.areaLabel).filter(Boolean))].sort();
-      setAreaLabelSuggestions(labels);
+    let mounted = true;
+    const params = new URLSearchParams({
+      buildingId: String(activeBuilding.buildingId),
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
     });
+    if (search) params.set("search", search);
+    const t = setTimeout(() => {
+      api.get(`/AirHandlers?${params}`).then((res) => {
+        if (!mounted) return;
+        setData(res.data.items);
+        setTotalCount(res.data.totalCount);
+      }).catch(() => { if (mounted) { setData([]); setTotalCount(0); } });
+    }, 250);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [activeBuilding, page, search, refreshKey]);
+
+  useEffect(() => {
+    if (!activeBuilding) return;
+    let mounted = true;
+    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => {
+      if (!mounted) return;
+      const areas: BuildingArea[] = res.data.items;
+      setBuildingAreas(areas);
+      setAreaLabelSuggestions(areas.map((a) => a.name).sort());
+    });
+    return () => { mounted = false; };
   }, [activeBuilding]);
 
   const handleOpenAdd = () => {
     setForm(EMPTY_FORM);
     setAddError(null);
     if (catalogItems.length === 0) {
-      api.get("/ItemCatalog").then((res) => setCatalogItems(res.data));
-    }
-    if (activeBuilding) {
-      api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => setBuildingAreas(res.data));
+      api.get("/ItemCatalog")
+        .then((res) => setCatalogItems(res.data))
+        .catch((err) => setAddError(getErrorMessage(err)));
     }
     setShowAddModal(true);
   };
 
   const handleOpenUpload = () => {
+    if (!activeBuilding) return;
     setUploadFile(null);
     setUploadStatus(null);
     setUploadError(null);
@@ -68,17 +110,22 @@ export default function AirHandlersPage() {
   };
 
   const handleDownload = async () => {
-    const res = await api.get(`/AirHandlers/export?buildingId=${activeBuilding.buildingId}`, {
-      responseType: "blob",
-    });
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement("a");
-    a.href = url;
-    const disposition = res.headers["content-disposition"] ?? "";
-    const match = disposition.match(/filename="?([^"]+)"?/);
-    a.download = match ? match[1] : "air-handlers.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    setDownloadError(null);
+    try {
+      const res = await api.get(`/AirHandlers/export?buildingId=${activeBuilding!.buildingId}`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers["content-disposition"] ?? "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      a.download = match ? match[1] : "air-handlers.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDownloadError(getErrorMessage(err));
+    }
   };
 
   const handleUpload = async (e) => {
@@ -90,14 +137,13 @@ export default function AirHandlersPage() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      const res = await api.post(`/AirHandlers/upload?buildingId=${activeBuilding.buildingId}`, formData, {
+      const res = await api.post(`/AirHandlers/upload?buildingId=${activeBuilding!.buildingId}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadStatus(res.data.message || "Upload successful.");
-      const updated = await api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`);
-      setData(updated.data);
+      setRefreshKey((k) => k + 1);
     } catch (err) {
-      setUploadError(err.response?.data || "Upload failed.");
+      setUploadError(getErrorMessage(err));
     } finally {
       setUploading(false);
     }
@@ -123,11 +169,11 @@ export default function AirHandlersPage() {
     setAddError(null);
     try {
       let resolvedAreaId = form.areaId ? Number(form.areaId) : null;
-      let resolvedAreaLabel = null;
+      let resolvedAreaLabel: string | null = null;
 
       if (form.areaId === "__new__" && form.newAreaName.trim()) {
         const areaRes = await api.post("/BuildingAreas", {
-          buildingId: activeBuilding.buildingId,
+          buildingId: activeBuilding!.buildingId,
           name: form.newAreaName.trim(),
           sortOrder: 0,
         });
@@ -139,10 +185,10 @@ export default function AirHandlersPage() {
         resolvedAreaLabel = area?.name ?? null;
       }
 
-      await api.post("/AirHandlers", {
+      await api.post<AirHandler>("/AirHandlers", {
         name: form.name,
         description: form.description,
-        buildingId: activeBuilding.buildingId,
+        buildingId: activeBuilding!.buildingId,
         filtersName: form.filtersName || null,
         quantity: form.quantity !== "" ? Number(form.quantity) : null,
         scheduleChangeInterval: form.scheduleChangeInterval || null,
@@ -150,13 +196,30 @@ export default function AirHandlersPage() {
         areaId: resolvedAreaId,
         areaLabel: resolvedAreaLabel,
       });
-      const res = await api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`);
-      setData(res.data);
-      const labels = [...new Set(res.data.map((ah) => ah.areaLabel).filter(Boolean))].sort();
-      setAreaLabelSuggestions(labels);
+      if (resolvedAreaLabel) {
+        setAreaLabelSuggestions((prev) =>
+          [...new Set<string>([...prev, resolvedAreaLabel!])].sort()
+        );
+      }
+      setRefreshKey((k) => k + 1);
       setShowAddModal(false);
     } catch (err) {
-      setAddError(err.response?.data || "Failed to add air handler.");
+      setAddError(getErrorMessage(err));
+    }
+  };
+
+  const handleBackfill = async () => {
+    setBackfilling(true);
+    setBackfillResult(null);
+    setBackfillError(null);
+    try {
+      const res = await api.post("/AirHandlers/backfill-catalog-items");
+      setBackfillResult({ matched: res.data.matched, unmatched: res.data.unmatched });
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      setBackfillError(getErrorMessage(err));
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -174,26 +237,14 @@ export default function AirHandlersPage() {
   };
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    const rows = q
-      ? data.filter(
-          (ah) =>
-            ah.name?.toLowerCase().includes(q) ||
-            ah.description?.toLowerCase().includes(q) ||
-            ah.filtersName?.toLowerCase().includes(q) ||
-            ah.sku?.toLowerCase().includes(q) ||
-            ah.areaLabel?.toLowerCase().includes(q)
-        )
-      : data;
-
-    return [...rows].sort((a, b) => {
+    return [...data].sort((a, b) => {
       const av = (a[sortKey] ?? "").toString().toLowerCase();
       const bv = (b[sortKey] ?? "").toString().toLowerCase();
       if (av < bv) return sortDir === "asc" ? -1 : 1;
       if (av > bv) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
-  }, [data, search, sortKey, sortDir]);
+  }, [data, sortKey, sortDir]);
 
   const grouped = useMemo(() => {
     const map = new Map();
@@ -213,7 +264,7 @@ export default function AirHandlersPage() {
     return sorted;
   }, [filtered]);
 
-  const isGrouped = areaLabelSuggestions.length > 0 && !search;
+  const isGrouped = areaLabelSuggestions.length > 0 && !search && totalCount <= PAGE_SIZE;
 
   const SortIcon = ({ col }) => {
     if (sortKey !== col) return <span className="sort-icon">↕</span>;
@@ -264,11 +315,16 @@ export default function AirHandlersPage() {
           <input
             className="table-search"
             type="text"
-            placeholder="Search by name, description, filter, area, or SKU…"
+            placeholder="Search by name, filter, or area…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
           <div className="table-actions">
+            {isSuperAdmin && (
+              <button className="inventory-button inventory-button--secondary" onClick={handleBackfill} disabled={backfilling}>
+                {backfilling ? "Linking…" : "Link Catalog Items"}
+              </button>
+            )}
             <button className="inventory-button inventory-button--secondary" onClick={handleDownload} disabled={!activeBuilding || data.length === 0}>
               Download CSV
             </button>
@@ -279,6 +335,20 @@ export default function AirHandlersPage() {
               <span>+</span> Add air handler
             </button>
           </div>
+          {downloadError && (
+            <div className="alert alert--danger alert--inline" style={{ marginTop: "0.4rem" }}>{downloadError}</div>
+          )}
+          {backfillResult && (
+            <div className="alert alert--success alert--inline" style={{ marginTop: "0.4rem" }}>
+              Linked {backfillResult.matched} handler{backfillResult.matched !== 1 ? "s" : ""}.{" "}
+              {backfillResult.unmatched > 0
+                ? `${backfillResult.unmatched} handler${backfillResult.unmatched !== 1 ? "s" : ""} still need manual configuration.`
+                : "All handlers are now linked."}
+            </div>
+          )}
+          {backfillError && (
+            <div className="alert alert--danger alert--inline" style={{ marginTop: "0.4rem" }}>{backfillError}</div>
+          )}
         </div>
 
         {isGrouped ? (
@@ -327,7 +397,8 @@ export default function AirHandlersPage() {
                 </div>
               );
             })}
-            <p className="table-count">{filtered.length} of {data.length} air handler{data.length !== 1 ? "s" : ""}</p>
+            <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            <p className="table-count">{totalCount} air handler{totalCount !== 1 ? "s" : ""}</p>
           </div>
         ) : (
           <>
@@ -346,7 +417,8 @@ export default function AirHandlersPage() {
                 </tbody>
               </table>
             </div>
-            <p className="table-count">{filtered.length} of {data.length} air handler{data.length !== 1 ? "s" : ""}</p>
+            <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            <p className="table-count">{totalCount} air handler{totalCount !== 1 ? "s" : ""}</p>
           </>
         )}
       </div>
@@ -369,7 +441,7 @@ export default function AirHandlersPage() {
                 <button
                   type="button"
                   onClick={handleDownload}
-                  style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontSize: "inherit", padding: 0, textDecoration: "underline" }}
+                  style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: "inherit", padding: 0, textDecoration: "underline" }}
                 >
                   Download current air handlers as CSV
                 </button>
@@ -381,11 +453,11 @@ export default function AirHandlersPage() {
                 accept=".csv"
                 className="inventory-modal-input"
                 style={{ marginBottom: 0, cursor: "pointer" }}
-                onChange={(e) => setUploadFile(e.target.files[0] || null)}
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                 required
               />
-              {uploadError && <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>{typeof uploadError === "string" ? uploadError : "Upload failed."}</p>}
-              {uploadStatus && <p style={{ color: "var(--success)", fontSize: "0.85rem", margin: 0 }}>{uploadStatus}</p>}
+              {uploadError && <div className="alert alert--danger alert--inline">{typeof uploadError === "string" ? uploadError : "Upload failed."}</div>}
+              {uploadStatus && <div className="alert alert--success alert--inline">{uploadStatus}</div>}
               <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
                 <button type="button" className="button inventory-modal-cancel" onClick={() => setShowUploadModal(false)}>
                   {uploadStatus ? "Close" : "Cancel"}
@@ -463,7 +535,7 @@ export default function AirHandlersPage() {
                 <label className="user-form-label">Schedule change interval</label>
                 <input className="inventory-modal-input" style={{ marginBottom: 0 }} name="scheduleChangeInterval" placeholder="90 days" value={form.scheduleChangeInterval} onChange={handleChange} />
               </div>
-              {addError && <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>{typeof addError === "string" ? addError : "Failed to add air handler."}</p>}
+              {addError && <div className="alert alert--danger alert--inline">{typeof addError === "string" ? addError : "Failed to add air handler."}</div>}
               <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
                 <button type="button" className="button inventory-modal-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
                 <button type="submit" className="button">Add</button>

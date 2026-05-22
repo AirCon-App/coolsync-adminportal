@@ -2,7 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SlArrowLeft } from "react-icons/sl";
 import PageShell from "../components/PageShell";
+import { useUsers } from "../hooks/useUsers";
 import api from "../data/api";
+import { getErrorMessage } from "../utils/apiError";
+
+interface WorkOrder { id: number; completedDate?: string; activityDate?: string; dueDate?: string; count?: number; technicianId?: string; notes?: string; }
+interface AirHandlerDetail { airHandlerGuid: string; name: string; description?: string; areaLabel?: string; filtersName?: string; quantity?: number; scheduleChangeInterval?: string; sku?: string; catalogItemId?: number | null; buildingId: number; workOrders?: WorkOrder[]; }
+interface CatalogItem { catalogItemId: number; name: string; sku?: string; }
 
 // ── Agenda helpers ──────────────────────────────────────────────────────────
 
@@ -39,7 +45,6 @@ function AgendaView({ workOrders, users }) {
   }, [users]);
 
   const upcomingOrders = useMemo(() => {
-    const now = new Date();
     return workOrders
       .filter((wo) => !wo.completedDate && !wo.activityDate)
       .sort((a, b) => {
@@ -96,8 +101,11 @@ function AgendaView({ workOrders, users }) {
                 padding: "1rem",
                 border: "1px solid var(--border)",
                 borderRadius: 8,
-                borderLeft: `4px solid ${color}`,
-                background: "var(--bg-card)",
+                background: status === "overdue"
+                  ? "var(--danger-sub)"
+                  : status === "due-soon"
+                  ? "var(--warning-sub)"
+                  : "var(--bg-raised)",
               }}
             >
               <div style={{ flex: 1 }}>
@@ -137,29 +145,94 @@ function AgendaView({ workOrders, users }) {
 export default function AirHandlerDetailPage() {
   const { guid } = useParams();
   const navigate = useNavigate();
-  const [handler, setHandler] = useState(null);
+  const [handler, setHandler] = useState<AirHandlerDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState([]);
+  const [fetchError, setFetchError] = useState<{ status?: number; message: string } | null>(null);
+  const users = useUsers();
   const [activeTab, setActiveTab] = useState("workorders");
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [selectedCatalogItemId, setSelectedCatalogItemId] = useState<number | null | "">("");
+  const [savingCatalogItem, setSavingCatalogItem] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     Promise.all([
       api.get(`/AirHandlers/${guid}`),
-      api.get("/Auth/users"),
+      api.get("/ItemCatalog"),
     ])
-      .then(([ahRes, usersRes]) => {
-        setHandler(ahRes.data);
-        setUsers(usersRes.data ?? []);
+      .then(([handlerRes, catalogRes]) => {
+        if (!mounted) return;
+        setHandler(handlerRes.data);
+        setSelectedCatalogItemId(handlerRes.data.catalogItemId ?? null);
+        setCatalogItems(catalogRes.data);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!mounted) return;
+        const status = err.response?.status;
+        const message = status === 403
+          ? "You don't have access to this air handler."
+          : status === 404
+            ? "Air handler not found."
+            : "Failed to load air handler. Please try again.";
+        setFetchError({ status, message });
+      })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
   }, [guid]);
 
+  const handleSaveCatalogItem = async () => {
+    if (!handler) return;
+    setSavingCatalogItem(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      await api.put(`/AirHandlers/${guid}`, {
+        ...handler,
+        catalogItemId: selectedCatalogItemId === "" ? null : selectedCatalogItemId,
+      });
+      setHandler((prev) => prev ? { ...prev, catalogItemId: selectedCatalogItemId === "" ? null : selectedCatalogItemId as number | null } : prev);
+      setSaveSuccess(true);
+    } catch (err) {
+      setSaveError(getErrorMessage(err));
+    } finally {
+      setSavingCatalogItem(false);
+    }
+  };
+
   if (loading) {
-    return <PageShell><p style={{ color: "var(--text-secondary)" }}>Loading...</p></PageShell>;
+    return <PageShell><p style={{ color: "var(--text-secondary)", padding: "2rem" }}>Loading...</p></PageShell>;
+  }
+
+  if (fetchError) {
+    return (
+      <PageShell>
+        <div className="inventory-container">
+          <button
+            onClick={() => navigate("/airhandlers")}
+            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.9rem", padding: 0, marginBottom: "1rem", fontFamily: "inherit" }}
+          >
+            <SlArrowLeft /> Back to air handlers
+          </button>
+          <div className="alert alert--danger">
+            <span className="alert__icon">!</span>
+            <span className="alert__body">{fetchError.message}</span>
+          </div>
+        </div>
+      </PageShell>
+    );
   }
 
   if (!handler) {
-    return <PageShell><p style={{ color: "var(--danger)" }}>Air handler not found.</p></PageShell>;
+    return (
+      <PageShell>
+        <div className="alert alert--danger" style={{ margin: "2rem" }}>
+          <span className="alert__icon">!</span>
+          <span className="alert__body">Air handler not found.</span>
+        </div>
+      </PageShell>
+    );
   }
 
   const tabs = [
@@ -224,6 +297,55 @@ export default function AirHandlerDetailPage() {
           )}
         </div>
 
+        {/* Filter Catalog Item */}
+        <div style={{ marginBottom: "2rem", padding: "1rem 1.25rem", border: "1px solid var(--border)", borderRadius: "0.5rem", background: "var(--bg-raised)" }}>
+          <p className="inventory-subtitle" style={{ marginBottom: "0.5rem" }}>Filter Catalog Item</p>
+          {handler.catalogItemId == null && (
+            <div className="alert alert--danger alert--inline" style={{ marginBottom: "0.75rem" }}>
+              <span className="alert__icon">!</span>
+              <span className="alert__body">No catalog item — this handler will not be auto-scheduled.</span>
+            </div>
+          )}
+          {handler.catalogItemId != null && (
+            <p style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "0.95rem", margin: "0 0 0.75rem" }}>
+              {catalogItems.find((c) => c.catalogItemId === handler.catalogItemId)?.name ?? `Catalog item #${handler.catalogItemId}`}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
+            <select
+              className="inventory-modal-input"
+              style={{ marginBottom: 0, flex: "1 1 220px", minWidth: 0 }}
+              value={selectedCatalogItemId === null ? "" : String(selectedCatalogItemId)}
+              onChange={(e) => {
+                setSaveSuccess(false);
+                setSaveError(null);
+                setSelectedCatalogItemId(e.target.value === "" ? null : Number(e.target.value));
+              }}
+            >
+              <option value="">— No catalog item —</option>
+              {catalogItems.map((c) => (
+                <option key={c.catalogItemId} value={c.catalogItemId}>
+                  {c.name}{c.sku ? ` (${c.sku})` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              className="inventory-button"
+              onClick={handleSaveCatalogItem}
+              disabled={savingCatalogItem}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              {savingCatalogItem ? "Saving…" : "Save"}
+            </button>
+          </div>
+          {saveSuccess && (
+            <div className="alert alert--success alert--inline" style={{ marginTop: "0.5rem" }}>Catalog item updated.</div>
+          )}
+          {saveError && (
+            <div className="alert alert--danger alert--inline" style={{ marginTop: "0.5rem" }}>{saveError}</div>
+          )}
+        </div>
+
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, marginBottom: "1.5rem", borderBottom: "1px solid var(--border)" }}>
           {tabs.map((tab) => (
@@ -233,7 +355,7 @@ export default function AirHandlerDetailPage() {
               style={{
                 background: "none",
                 border: "none",
-                borderBottom: activeTab === tab.id ? "2px solid var(--primary, #3b82f6)" : "2px solid transparent",
+                borderBottom: activeTab === tab.id ? "2px solid var(--accent)" : "2px solid transparent",
                 color: activeTab === tab.id ? "var(--text-primary)" : "var(--text-muted)",
                 fontWeight: activeTab === tab.id ? 700 : 400,
                 padding: "0.6rem 1.1rem",
@@ -269,7 +391,7 @@ export default function AirHandlerDetailPage() {
                         <p className="inventory-subtitle">Filters: {wo.count}</p>
                         {wo.dueDate && <p className="inventory-subtitle">Due: {new Date(wo.dueDate).toLocaleDateString()}</p>}
                         {(wo.completedDate || wo.activityDate) && (
-                          <p className="inventory-subtitle">Completed: {new Date(wo.activityDate ?? wo.completedDate).toLocaleDateString()}</p>
+                          <p className="inventory-subtitle">Completed: {new Date((wo.activityDate ?? wo.completedDate)!).toLocaleDateString()}</p>
                         )}
                         {wo.technicianId && (
                           <p className="inventory-subtitle">

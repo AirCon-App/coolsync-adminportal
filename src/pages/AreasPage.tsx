@@ -1,44 +1,82 @@
 import React, { useState, useEffect } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { getErrorMessage } from "../utils/apiError";
 import { useBuilding } from "../context/BuildingContext";
+import { Pagination } from "../components/Pagination";
+
+interface Area { id: number; name: string; sortOrder: number; }
+
+const PAGE_SIZE = 25;
 
 export default function AreasPage() {
   const { activeBuilding } = useBuilding();
-  const [areas, setAreas] = useState([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingArea, setEditingArea] = useState(null);
-  const [deletingArea, setDeletingArea] = useState(null);
-  const [deleteError, setDeleteError] = useState(null);
+  const [editingArea, setEditingArea] = useState<Area | null>(null);
+  const [deletingArea, setDeletingArea] = useState<Area | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => { setPage(1); }, [activeBuilding]);
 
   useEffect(() => {
     if (!activeBuilding) return;
-    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => setAreas(res.data));
-  }, [activeBuilding]);
+    let mounted = true;
+    const params = new URLSearchParams({
+      buildingId: String(activeBuilding.buildingId),
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+    });
+    if (search) params.set("search", search);
+    const t = setTimeout(() => {
+      api.get(`/BuildingAreas?${params}`).then((res) => {
+        if (!mounted) return;
+        setAreas(res.data.items);
+        setTotalCount(res.data.totalCount);
+      }).catch(() => { if (mounted) { setAreas([]); setTotalCount(0); } });
+    }, 250);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [activeBuilding, page, search]);
 
-  const refresh = () =>
-    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => setAreas(res.data));
+  const refresh = async () => {
+    if (!activeBuilding) return;
+    const params = new URLSearchParams({
+      buildingId: String(activeBuilding.buildingId),
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+    });
+    if (search) params.set("search", search);
+    const res = await api.get(`/BuildingAreas?${params}`);
+    setAreas(res.data.items);
+    setTotalCount(res.data.totalCount);
+  };
 
   const handleAdd = async (form) => {
+    if (!activeBuilding) return;
     await api.post("/BuildingAreas", { ...form, buildingId: activeBuilding.buildingId });
     await refresh();
     setShowAddModal(false);
   };
 
   const handleEdit = async (form) => {
+    if (!activeBuilding || !editingArea) return;
     await api.put(`/BuildingAreas/${editingArea.id}`, { ...form, buildingId: activeBuilding.buildingId });
     await refresh();
     setEditingArea(null);
   };
 
   const handleDelete = async () => {
+    if (!deletingArea) return;
     setDeleteError(null);
     try {
       await api.delete(`/BuildingAreas/${deletingArea.id}`);
-      setAreas((prev) => prev.filter((a) => a.id !== deletingArea.id));
+      await refresh();
       setDeletingArea(null);
     } catch (err) {
-      setDeleteError(err.response?.data?.message || err.response?.data || "Failed to delete area.");
+      setDeleteError(getErrorMessage(err));
     }
   };
 
@@ -62,6 +100,13 @@ export default function AreasPage() {
                   <span>+</span> Add area
                 </button>
               </div>
+              <input
+                className="table-filter-select"
+                style={{ maxWidth: 220 }}
+                placeholder="Search areas…"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              />
             </div>
 
             <div className="data-table-wrap">
@@ -101,7 +146,8 @@ export default function AreasPage() {
                 </tbody>
               </table>
             </div>
-            <p className="table-count">{areas.length} area{areas.length !== 1 ? "s" : ""}</p>
+            <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            <p className="table-count">{totalCount} area{totalCount !== 1 ? "s" : ""}</p>
           </>
         )}
       </div>
@@ -133,9 +179,9 @@ export default function AreasPage() {
               Air handlers in this area will become ungrouped.
             </p>
             {deleteError && (
-              <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
+              <div className="alert alert--danger alert--inline" style={{ marginTop: "0.25rem" }}>
                 {typeof deleteError === "string" ? deleteError : "Failed to delete."}
-              </p>
+              </div>
             )}
             <div className="inventory-modal-actions">
               <button
@@ -160,7 +206,7 @@ function AreaFormModal({ title, initial = {} as any, onSave, onClose }) {
     name: initial.name || "",
     sortOrder: initial.sortOrder ?? 0,
   });
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -168,7 +214,7 @@ function AreaFormModal({ title, initial = {} as any, onSave, onClose }) {
     try {
       await onSave({ ...form, sortOrder: Number(form.sortOrder) });
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data || "Something went wrong.");
+      setError(getErrorMessage(err));
     }
   };
 
@@ -204,9 +250,9 @@ function AreaFormModal({ title, initial = {} as any, onSave, onClose }) {
             </p>
           </div>
           {error && (
-            <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>
+            <div className="alert alert--danger alert--inline">
               {typeof error === "string" ? error : "Something went wrong."}
-            </p>
+            </div>
           )}
           <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
             <button type="button" className="button inventory-modal-cancel" onClick={onClose}>Cancel</button>

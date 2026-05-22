@@ -1,7 +1,13 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { getErrorMessage } from "../utils/apiError";
 import { useBuilding } from "../context/BuildingContext";
+import { Pagination } from "../components/Pagination";
+
+interface CatalogItem { catalogItemId: number; name: string; sku?: string; }
+interface InventoryItem { itemNumber: number; quantity: number; minLevel?: number; reorderQty?: number; buildingId: number; areaId?: number | null; areaName?: string | null; catalogItem?: CatalogItem; }
+interface Area { id: number; name: string; }
 
 function StockBadge({ qty, minLevel }) {
   const low = minLevel > 0 ? qty < minLevel : qty === 0;
@@ -18,42 +24,73 @@ function StockBadge({ qty, minLevel }) {
   );
 }
 
+const PAGE_SIZE = 25;
+
 export default function InventoryPage() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<InventoryItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [editItem, setEditItem] = useState(null);
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [editQty, setEditQty] = useState(0);
   const [editMinLevel, setEditMinLevel] = useState(0);
   const [editReorderQty, setEditReorderQty] = useState(0);
-  const [catalogItems, setCatalogItems] = useState([]);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [form, setForm] = useState({ catalogItemId: "", quantity: 1 });
-  const [addError, setAddError] = useState(null);
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadStatus, setUploadStatus] = useState(null);
-  const [uploadError, setUploadError] = useState(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [stockFilter, setStockFilter] = useState("all");
   const [areaFilter, setAreaFilter] = useState("all");
-  const [sortKey, setSortKey] = useState("name");
-  const [sortDir, setSortDir] = useState("asc");
-  const [areas, setAreas] = useState([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [editAreaId, setEditAreaId] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const { activeBuilding } = useBuilding();
+
+  useEffect(() => { setPage(1); }, [activeBuilding]);
 
   useEffect(() => {
     if (!activeBuilding) return;
-    api.get(`/Inventory?buildingId=${activeBuilding.buildingId}`).then((res) => setData(res.data));
-    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => setAreas(res.data));
+    let mounted = true;
+    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+    params.set("buildingId", String(activeBuilding.buildingId));
+    if (search) params.set("search", search);
+    if (stockFilter !== "all") params.set("stockStatus", stockFilter);
+    if (areaFilter === "none") params.set("areaId", "0");
+    else if (areaFilter !== "all") params.set("areaId", areaFilter);
+    const t = setTimeout(() => {
+      api.get(`/Inventory?${params}`).then((res) => {
+        if (!mounted) return;
+        setData(res.data.items);
+        setTotalCount(res.data.totalCount);
+      }).catch(() => { if (mounted) { setData([]); setTotalCount(0); } });
+    }, 250);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [activeBuilding, page, search, stockFilter, areaFilter, refreshKey]);
+
+  useEffect(() => {
+    if (!activeBuilding) return;
+    let mounted = true;
+    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => { if (mounted) setAreas(res.data.items); });
+    return () => { mounted = false; };
   }, [activeBuilding]);
+
+  const refresh = () => setRefreshKey((k) => k + 1);
 
   const handleOpenAdd = () => {
     setAddError(null);
     setForm({ catalogItemId: "", quantity: 1 });
     if (catalogItems.length === 0) {
-      api.get("/ItemCatalog").then((res) => setCatalogItems(res.data));
+      api.get("/ItemCatalog")
+        .then((res) => setCatalogItems(res.data))
+        .catch((err) => setAddError(getErrorMessage(err)));
     }
     setShowAddModal(true);
   };
@@ -68,25 +105,28 @@ export default function InventoryPage() {
   };
 
   const handleDownloadTemplate = async () => {
+    if (!activeBuilding) return;
+    setDownloadError(null);
     try {
-      const res = await api.get(`/Inventory/template?buildingId=${activeBuilding.buildingId}`, {
+      const res = await api.get(`/Inventory/template?buildingId=${activeBuilding!.buildingId}`, {
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `inventory_template_building_${activeBuilding.buildingId}.csv`);
+      link.setAttribute("download", `inventory_template_building_${activeBuilding!.buildingId}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Template download failed:", err);
+      setDownloadError(getErrorMessage(err));
     }
   };
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (!activeBuilding) return;
     setAddError(null);
     try {
       await api.post("/Inventory", {
@@ -94,41 +134,35 @@ export default function InventoryPage() {
         buildingId: activeBuilding.buildingId,
         quantity: Number(form.quantity),
       });
-      const res = await api.get(`/Inventory?buildingId=${activeBuilding.buildingId}`);
-      setData(res.data);
+      refresh();
       setShowAddModal(false);
     } catch (err) {
-      setAddError(err.response?.data || "Failed to add inventory item.");
+      setAddError(getErrorMessage(err));
     }
   };
 
   const handleSaveQty = async () => {
+    setSaveError(null);
     try {
       const areaIdValue = editAreaId === "" ? null : Number(editAreaId);
-      await api.put(`/Inventory/${editItem.itemNumber}`, {
-        itemNumber: editItem.itemNumber,
-        catalogItemId: editItem.catalogItem?.catalogItemId,
-        buildingId: editItem.buildingId,
+      await api.put(`/Inventory/${editItem!.itemNumber}`, {
+        itemNumber: editItem!.itemNumber,
+        catalogItemId: editItem!.catalogItem?.catalogItemId,
+        buildingId: editItem!.buildingId,
         quantity: editQty,
         minLevel: editMinLevel,
         reorderQty: editReorderQty,
         areaId: areaIdValue,
       });
-      const areaName = areaIdValue ? (areas.find((a) => a.id === areaIdValue)?.name ?? null) : null;
-      setData((prev) =>
-        prev.map((item) =>
-          item.itemNumber === editItem.itemNumber
-            ? { ...item, quantity: editQty, minLevel: editMinLevel, reorderQty: editReorderQty, areaId: areaIdValue, areaName }
-            : item
-        )
-      );
+      refresh();
       setShowEditModal(false);
     } catch (err) {
-      console.error("Failed to update inventory:", err);
+      setSaveError(getErrorMessage(err));
     }
   };
 
   const handleOpenUpload = () => {
+    if (!activeBuilding) return;
     setUploadFile(null);
     setUploadStatus(null);
     setUploadError(null);
@@ -144,78 +178,18 @@ export default function InventoryPage() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      const res = await api.post(`/Inventory/upload?buildingId=${activeBuilding.buildingId}&mode=add`, formData, {
+      const res = await api.post(`/Inventory/upload?buildingId=${activeBuilding!.buildingId}&mode=add`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadStatus(res.data.message || "Upload successful.");
-      const updated = await api.get(`/Inventory?buildingId=${activeBuilding.buildingId}`);
-      setData(updated.data);
+      refresh();
     } catch (err) {
-      setUploadError(err.response?.data || "Upload failed.");
+      setUploadError(getErrorMessage(err));
     } finally {
       setUploading(false);
     }
   };
 
-  const handleSort = (key) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  };
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    let rows = data;
-
-    if (q) {
-      rows = rows.filter(
-        (item) =>
-          item.catalogItem?.name?.toLowerCase().includes(q) ||
-          item.catalogItem?.sku?.toLowerCase().includes(q)
-      );
-    }
-
-    if (stockFilter === "low") {
-      rows = rows.filter((item) => item.minLevel > 0 ? item.quantity < item.minLevel : item.quantity === 0);
-    } else if (stockFilter === "in") {
-      rows = rows.filter((item) => item.minLevel > 0 ? item.quantity >= item.minLevel : item.quantity > 0);
-    }
-
-    if (areaFilter !== "all") {
-      if (areaFilter === "none") {
-        rows = rows.filter((item) => !item.areaId);
-      } else {
-        rows = rows.filter((item) => String(item.areaId) === areaFilter);
-      }
-    }
-
-    return [...rows].sort((a, b) => {
-      let av, bv;
-      if (sortKey === "quantity") {
-        av = a.quantity ?? 0;
-        bv = b.quantity ?? 0;
-        return sortDir === "asc" ? av - bv : bv - av;
-      }
-      if (sortKey === "sku") {
-        av = (a.catalogItem?.sku ?? "").toLowerCase();
-        bv = (b.catalogItem?.sku ?? "").toLowerCase();
-      } else {
-        av = (a.catalogItem?.name ?? "").toLowerCase();
-        bv = (b.catalogItem?.name ?? "").toLowerCase();
-      }
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [data, search, stockFilter, areaFilter, sortKey, sortDir]);
-
-  const SortIcon = ({ col }) => {
-    if (sortKey !== col) return <span className="sort-icon">↕</span>;
-    return <span className="sort-icon active">{sortDir === "asc" ? "↑" : "↓"}</span>;
-  };
 
   return (
     <PageShell>
@@ -240,14 +214,14 @@ export default function InventoryPage() {
             type="text"
             placeholder="Search by name or SKU…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             data-testid="inventory-search"
           />
           <div className="table-actions">
             <select
               className="table-filter-select"
               value={stockFilter}
-              onChange={(e) => setStockFilter(e.target.value)}
+              onChange={(e) => { setStockFilter(e.target.value); setPage(1); }}
               data-testid="stock-filter"
             >
               <option value="all">All stock levels</option>
@@ -257,7 +231,7 @@ export default function InventoryPage() {
             <select
               className="table-filter-select"
               value={areaFilter}
-              onChange={(e) => setAreaFilter(e.target.value)}
+              onChange={(e) => { setAreaFilter(e.target.value); setPage(1); }}
               data-testid="area-filter"
             >
               <option value="all">All areas</option>
@@ -278,14 +252,20 @@ export default function InventoryPage() {
           </div>
         </div>
 
+        {downloadError && (
+          <div className="alert alert--danger alert--inline" style={{ marginBottom: "0.5rem" }}>
+            {typeof downloadError === "string" ? downloadError : "Template download failed."}
+          </div>
+        )}
+
         <div className="data-table-wrap">
           <table className="data-table" data-testid="inventory-table">
             <thead>
               <tr>
-                <th onClick={() => handleSort("name")}>Item name <SortIcon col="name" /></th>
-                <th onClick={() => handleSort("sku")}>SKU <SortIcon col="sku" /></th>
+                <th>Item name</th>
+                <th>SKU</th>
                 <th>Area</th>
-                <th onClick={() => handleSort("quantity")}>Qty <SortIcon col="quantity" /></th>
+                <th>Qty</th>
                 <th>Min Level</th>
                 <th>Reorder Qty</th>
                 <th>Status</th>
@@ -293,14 +273,14 @@ export default function InventoryPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
+              {data.length === 0 && (
                 <tr>
                   <td colSpan={8} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
                     {search || stockFilter !== "all" || areaFilter !== "all" ? "No items match your filters." : "No inventory items yet."}
                   </td>
                 </tr>
               )}
-              {filtered.map((item) => (
+              {data.map((item) => (
                 <tr
                   key={item.itemNumber}
                   className="data-table-row"
@@ -311,8 +291,8 @@ export default function InventoryPage() {
                   <td className="td-mono">{item.catalogItem?.sku || <span className="td-empty">—</span>}</td>
                   <td>{item.areaName || <span className="td-empty">—</span>}</td>
                   <td>{item.quantity}</td>
-                  <td>{item.minLevel > 0 ? item.minLevel : <span className="td-empty">—</span>}</td>
-                  <td>{item.reorderQty > 0 ? item.reorderQty : <span className="td-empty">—</span>}</td>
+                  <td>{(item.minLevel ?? 0) > 0 ? item.minLevel : <span className="td-empty">—</span>}</td>
+                  <td>{(item.reorderQty ?? 0) > 0 ? item.reorderQty : <span className="td-empty">—</span>}</td>
                   <td><StockBadge qty={item.quantity} minLevel={item.minLevel ?? 0} /></td>
                   <td className="td-arrow">›</td>
                 </tr>
@@ -320,7 +300,8 @@ export default function InventoryPage() {
             </tbody>
           </table>
         </div>
-        <p className="table-count">{filtered.length} of {data.length} item{data.length !== 1 ? "s" : ""}</p>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+        <p className="table-count">{totalCount} item{totalCount !== 1 ? "s" : ""}</p>
       </div>
 
       {showAddModal && (
@@ -362,9 +343,9 @@ export default function InventoryPage() {
                 />
               </div>
               {addError && (
-                <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>
+                <div className="alert alert--danger alert--inline">
                   {typeof addError === "string" ? addError : "Failed to add item."}
-                </p>
+                </div>
               )}
               <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
                 <button
@@ -428,7 +409,7 @@ export default function InventoryPage() {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "var(--primary)",
+                    color: "var(--accent)",
                     cursor: "pointer",
                     fontSize: "inherit",
                     padding: 0,
@@ -445,18 +426,16 @@ export default function InventoryPage() {
                 accept=".csv"
                 className="inventory-modal-input"
                 style={{ marginBottom: 0, cursor: "pointer" }}
-                onChange={(e) => setUploadFile(e.target.files[0] || null)}
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                 required
               />
               {uploadError && (
-                <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>
+                <div className="alert alert--danger alert--inline">
                   {typeof uploadError === "string" ? uploadError : "Upload failed."}
-                </p>
+                </div>
               )}
               {uploadStatus && (
-                <p style={{ color: "var(--success)", fontSize: "0.85rem", margin: 0 }}>
-                  {uploadStatus}
-                </p>
+                <div className="alert alert--success alert--inline">{uploadStatus}</div>
               )}
               <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
                 <button
@@ -540,11 +519,16 @@ export default function InventoryPage() {
                 </select>
               </div>
             </div>
+            {saveError && (
+              <div className="alert alert--danger alert--inline" style={{ marginTop: "0.5rem" }}>
+                {typeof saveError === "string" ? saveError : "Failed to save."}
+              </div>
+            )}
             <div className="inventory-modal-actions" style={{ marginTop: "1rem" }}>
               <button
                 type="button"
                 className="button inventory-modal-cancel"
-                onClick={() => setShowEditModal(false)}
+                onClick={() => { setShowEditModal(false); setSaveError(null); }}
               >
                 Cancel
               </button>

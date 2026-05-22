@@ -1,14 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { useUsers } from "../hooks/useUsers";
 import { SlPrinter } from "react-icons/sl";
 import { MdOutlineEmail } from "react-icons/md";
 import TimeFrameSelector from "../components/TimeFrameSelector";
 import EmailReportModal from "../components/EmailReportModal";
 import { useBuilding } from "../context/BuildingContext";
-import { useAuth } from "../context/AuthContext";
-
-type jsPDF = import("jspdf").jsPDF;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -158,22 +156,22 @@ function ReportCard({ title, buildingName, children, onExport, onEmail, lowStock
 
 export default function ReportingPage() {
   const { activeBuilding } = useBuilding();
-  const { user: authUser } = useAuth();
-  const [airHandlers, setAirHandlers] = useState([]);
-  const [workOrders, setWorkOrders] = useState([]);
-  const [inventory, setInventory] = useState([]);
-  const [catalogItems, setCatalogItems] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [airHandlers, setAirHandlers] = useState<any[]>([]);
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [catalogItems, setCatalogItems] = useState<any[]>([]);
+  const users = useUsers();
   const [loading, setLoading] = useState(true);
   const [buildingLoading, setBuildingLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Time-frame state — default 1 month back to today
   const [dateFrom, setDateFrom] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d; });
   const [dateTo, setDateTo] = useState(() => new Date());
 
   // Email modal state
-  const [emailModal, setEmailModal] = useState(null); // { reportType, getPdfBase64 }
+  const [emailModal, setEmailModal] = useState<{ reportType: string; getPdfBase64: () => Promise<string> } | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   function handleTimeFrameChange({ dateFrom: f, dateTo: t }) {
     setDateFrom(f);
@@ -185,28 +183,27 @@ export default function ReportingPage() {
     return `${fmt(dateFrom)} – ${fmt(dateTo)}`;
   }
 
-  // Phase 1: fetch users + catalog once on mount
+  // Phase 1: fetch catalog once on mount
   useEffect(() => {
+    let mounted = true;
     const fetchInit = async () => {
       try {
-        const [uRes, catRes] = await Promise.all([
-          api.get("/Auth/users"),
-          api.get("/ItemCatalog"),
-        ]);
-        setUsers(uRes.data);
-        setCatalogItems(catRes.data);
+        const catRes = await api.get("/ItemCatalog");
+        if (mounted) setCatalogItems(catRes.data);
       } catch (err) {
-        setError("Failed to load initial data. " + (err.message || ""));
+        if (mounted) setError("Failed to load initial data. " + (err instanceof Error ? err.message : ""));
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     fetchInit();
+    return () => { mounted = false; };
   }, []);
 
   // Phase 2: fetch building-specific data when activeBuilding changes
   useEffect(() => {
     if (!activeBuilding) return;
+    let mounted = true;
     const fetchBuildingData = async () => {
       setBuildingLoading(true);
       setError(null);
@@ -217,16 +214,18 @@ export default function ReportingPage() {
           api.get(`/WorkOrders?buildingId=${bid}`),
           api.get(`/Inventory?buildingId=${bid}`),
         ]);
-        setAirHandlers(ahRes.data);
+        if (!mounted) return;
+        setAirHandlers(ahRes.data.items);
         setWorkOrders(woRes.data);
-        setInventory(invRes.data);
+        setInventory(invRes.data.items);
       } catch (err) {
-        setError("Failed to load report data. " + (err.message || ""));
+        if (mounted) setError("Failed to load report data. " + (err.message || ""));
       } finally {
-        setBuildingLoading(false);
+        if (mounted) setBuildingLoading(false);
       }
     };
     fetchBuildingData();
+    return () => { mounted = false; };
   }, [activeBuilding]);
 
   // ─── Lookup maps ────────────────────────────────────────────────────────
@@ -257,8 +256,8 @@ export default function ReportingPage() {
     const now = new Date();
     const thirtyDaysAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    const completedRows = [];
-    const upcomingRows = [];
+    const completedRows: any[] = [];
+    const upcomingRows: any[] = [];
 
     workOrders.forEach((wo) => {
       const handler = handlerMap[wo.handler];
@@ -397,7 +396,7 @@ export default function ReportingPage() {
           recommendedQty: Math.max(baseQty, 1),
         };
       })
-      .filter(Boolean);
+      .filter(Boolean) as any[];
 
     const totalUpcomingDemand = Object.values(demandMap).reduce((sum, d: any) => sum + d.qtyRequired, 0);
     const lowStockCount = currentLevels.filter((r) => r.status !== "OK").length;
@@ -438,14 +437,14 @@ export default function ReportingPage() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    doc.setFontSize(18).setFont(undefined, "bold").text("Filter Activity Report", 14, 20);
-    doc.setFontSize(11).setFont(undefined, "normal").text(selectedBuildingName, 14, 29);
+    doc.setFontSize(18).setFont(doc.getFont().fontName, "bold").text("Filter Activity Report", 14, 20);
+    doc.setFontSize(11).setFont(doc.getFont().fontName, "normal").text(selectedBuildingName, 14, 29);
     doc.setFontSize(9).text(`${today}  |  ${formatDateRange()}`, 14, 36);
-    doc.setFontSize(11).setFont(undefined, "bold").text("NJ Filters", pageWidth - 14, 20, { align: "right" });
+    doc.setFontSize(11).setFont(doc.getFont().fontName, "bold").text("NJ Filters", pageWidth - 14, 20, { align: "right" });
 
     let y = 44;
 
-    doc.setFontSize(10).setFont(undefined, "bold").text(`Completed Filter Changes (${formatDateRange()})`, 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text(`Completed Filter Changes (${formatDateRange()})`, 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Unit", "Filter Type", "Filter Size / MERV", "Qty", "Date Changed", "Days Early/Late", "Technician"]],
@@ -456,7 +455,7 @@ export default function ReportingPage() {
     });
 
     y = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text("Upcoming Filter Changes (Next 30 Days)", 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text("Upcoming Filter Changes (Next 30 Days)", 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Unit", "Filter Type", "Filter Size / MERV", "Qty", "Next Due Date"]],
@@ -467,17 +466,22 @@ export default function ReportingPage() {
     });
 
     y = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text(`Summary (${filterActivityReport.rangeLabel})`, 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text(`Summary (${filterActivityReport.rangeLabel})`, 14, y);
     filterActivityReport.summary.forEach((line, i) => {
-      doc.setFontSize(9).setFont(undefined, "normal").text(`• ${line}`, 18, y + 8 + i * 6);
+      doc.setFontSize(9).setFont(doc.getFont().fontName, "normal").text(`• ${line}`, 18, y + 8 + i * 6);
     });
 
     return doc;
   }
 
   async function exportFilterActivityPDF() {
-    const doc = await buildFilterActivityPdfDoc();
-    doc.save(`FilterActivityReport_${selectedBuildingName}_${today}.pdf`);
+    setPdfError(null);
+    try {
+      const doc = await buildFilterActivityPdfDoc();
+      doc.save(`FilterActivityReport_${selectedBuildingName}_${today}.pdf`);
+    } catch (err) {
+      setPdfError(err instanceof Error ? `Failed to export PDF: ${err.message}` : "Failed to generate PDF. Please try again.");
+    }
   }
 
   async function buildInventoryPdfDoc() {
@@ -485,14 +489,14 @@ export default function ReportingPage() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    doc.setFontSize(18).setFont(undefined, "bold").text("Inventory Report", 14, 20);
-    doc.setFontSize(11).setFont(undefined, "normal").text(selectedBuildingName, 14, 29);
+    doc.setFontSize(18).setFont(doc.getFont().fontName, "bold").text("Inventory Report", 14, 20);
+    doc.setFontSize(11).setFont(doc.getFont().fontName, "normal").text(selectedBuildingName, 14, 29);
     doc.setFontSize(9).text(`${today}  |  ${formatDateRange()}`, 14, 36);
-    doc.setFontSize(11).setFont(undefined, "bold").text("NJ Filters", pageWidth - 14, 20, { align: "right" });
+    doc.setFontSize(11).setFont(doc.getFont().fontName, "bold").text("NJ Filters", pageWidth - 14, 20, { align: "right" });
 
     let y = 44;
 
-    doc.setFontSize(10).setFont(undefined, "bold").text("Current Inventory Levels", 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text("Current Inventory Levels", 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Filter Size / MERV", "On Hand Qty", "Min Level", "Reorder Qty", "Status"]],
@@ -503,7 +507,7 @@ export default function ReportingPage() {
     });
 
     y = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text(`Inventory Usage (${inventoryReport.rangeLabel})`, 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text(`Inventory Usage (${inventoryReport.rangeLabel})`, 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Filter Size / MERV", "Qty Used", "Primary Locations"]],
@@ -514,7 +518,7 @@ export default function ReportingPage() {
     });
 
     y = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text("Upcoming Inventory Demand (Next 30 Days)", 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text("Upcoming Inventory Demand (Next 30 Days)", 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Filter Size / MERV", "Qty Required", "Scheduled Units"]],
@@ -525,7 +529,7 @@ export default function ReportingPage() {
     });
 
     y = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text("Reorder Recommendations", 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text("Reorder Recommendations", 14, y);
     autoTable(doc, {
       startY: y + 4,
       head: [["Filter Size / MERV", "Current Qty", "Min Level", "Recommended Order Qty"]],
@@ -538,17 +542,22 @@ export default function ReportingPage() {
     });
 
     y = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(undefined, "bold").text(`Inventory Summary (${inventoryReport.rangeLabel})`, 14, y);
+    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text(`Inventory Summary (${inventoryReport.rangeLabel})`, 14, y);
     inventoryReport.summary.forEach((line, i) => {
-      doc.setFontSize(9).setFont(undefined, "normal").text(`• ${line}`, 18, y + 8 + i * 6);
+      doc.setFontSize(9).setFont(doc.getFont().fontName, "normal").text(`• ${line}`, 18, y + 8 + i * 6);
     });
 
     return doc;
   }
 
   async function exportInventoryPDF() {
-    const doc = await buildInventoryPdfDoc();
-    doc.save(`InventoryReport_${selectedBuildingName}_${today}.pdf`);
+    setPdfError(null);
+    try {
+      const doc = await buildInventoryPdfDoc();
+      doc.save(`InventoryReport_${selectedBuildingName}_${today}.pdf`);
+    } catch (err) {
+      setPdfError(err instanceof Error ? `Failed to export PDF: ${err.message}` : "Failed to generate PDF. Please try again.");
+    }
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────
@@ -590,13 +599,16 @@ export default function ReportingPage() {
 
           {/* Error state */}
           {error && (
-            <div className="inventory-item" style={{ flexDirection: "column", borderColor: "var(--danger)", marginBottom: "1.5rem" }}>
-              <p style={{ color: "var(--danger)", margin: "0 0 0.5rem", fontWeight: 600 }}>Error loading data</p>
-              <p style={{ color: "var(--text-secondary)", margin: "0 0 0.75rem", fontSize: "0.9rem" }}>{error}</p>
-              <button className="button" onClick={() => window.location.reload()} style={{ alignSelf: "flex-start", padding: "0.4rem 1rem", fontSize: "0.85rem" }}>
-                Retry
-              </button>
+            <div className="alert alert--danger" style={{ marginBottom: "1.5rem" }}>
+              <span className="alert__icon">!</span>
+              <span className="alert__body">
+                <span className="alert__title">Error loading data</span>
+                {error}
+              </span>
             </div>
+          )}
+          {pdfError && (
+            <div className="alert alert--danger alert--inline" style={{ marginBottom: "1rem" }}>{pdfError}</div>
           )}
 
           {buildingLoading ? (
@@ -608,7 +620,12 @@ export default function ReportingPage() {
                 title="Filter Activity Report"
                 buildingName={selectedBuildingName}
                 onExport={exportFilterActivityPDF}
-                onEmail={() => setEmailModal({ reportType: "Filter Activity", getPdfBase64: async () => (await buildFilterActivityPdfDoc()).output("datauristring").split(",")[1] })}
+                onEmail={() => setEmailModal({ reportType: "Filter Activity", getPdfBase64: async () => {
+                  const dataUri = (await buildFilterActivityPdfDoc()).output("datauristring");
+                  const parts = dataUri.split(",");
+                  if (parts.length < 2) throw new Error("Failed to encode PDF.");
+                  return parts[1];
+                }})}
               >
                 <SectionTable
                   title={`Completed Filter Changes (${filterActivityReport.rangeLabel})`}
@@ -642,7 +659,12 @@ export default function ReportingPage() {
                 title="Inventory Report"
                 buildingName={selectedBuildingName}
                 onExport={exportInventoryPDF}
-                onEmail={() => setEmailModal({ reportType: "Inventory", getPdfBase64: async () => (await buildInventoryPdfDoc()).output("datauristring").split(",")[1] })}
+                onEmail={() => setEmailModal({ reportType: "Inventory", getPdfBase64: async () => {
+                  const dataUri = (await buildInventoryPdfDoc()).output("datauristring");
+                  const parts = dataUri.split(",");
+                  if (parts.length < 2) throw new Error("Failed to encode PDF.");
+                  return parts[1];
+                }})}
                 lowStockCount={inventoryReport.lowStockCount}
               >
                 <SectionTable

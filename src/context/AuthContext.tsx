@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import type { User, AuthContextValue } from "../types";
+import { invalidateUsersCache } from "../hooks/useUsers";
 
 interface JwtPayload {
   sub?: string;
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("cs-active-building");
+    invalidateUsersCache();
     setAuth({ token: null, user: null });
   }, []);
 

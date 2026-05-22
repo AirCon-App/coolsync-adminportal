@@ -1,31 +1,58 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { invalidateUsersCache } from "../hooks/useUsers";
+import { getErrorMessage } from "../utils/apiError";
+import { useAuth } from "../context/AuthContext";
+import { Pagination } from "../components/Pagination";
+
+interface AppUser { id: string; email: string; fullName?: string; role: string; buildingIds?: number[]; }
+interface AppBuilding { buildingId: number; name: string; address?: string; }
 
 const ROLES = ["User", "BuildingAdmin", "SuperAdmin"];
 const ROLE_LABELS = { User: "Technician", BuildingAdmin: "Building Admin", SuperAdmin: "Super Admin" };
+const PAGE_SIZE = 25;
 
 export default function UsersPage() {
-  const [users, setUsers] = useState([]);
-  const [buildings, setBuildings] = useState([]);
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [buildings, setBuildings] = useState<AppBuilding[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [deletingUser, setDeletingUser] = useState(null);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
   const [reassignToId, setReassignToId] = useState("");
-  const [deleteError, setDeleteError] = useState(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-  const [sortKey, setSortKey] = useState("fullName");
-  const [sortDir, setSortDir] = useState("asc");
-
-  const fetchUsers = () =>
-    api.get("/Auth/users").then((res) => setUsers(res.data));
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
 
   useEffect(() => {
-    fetchUsers();
-    api.get("/Buildings").then((res) => setBuildings(res.data));
+    let mounted = true;
+    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+    if (search) params.set("search", search);
+    if (roleFilter !== "all") params.set("role", roleFilter);
+    if (selectedBuildingId !== "all") params.set("buildingId", selectedBuildingId);
+    const t = setTimeout(() => {
+      api.get(`/Auth/users?${params}`).then((res) => {
+        if (!mounted) return;
+        setUsers(res.data.items);
+        setTotalCount(res.data.totalCount);
+      }).catch(() => { if (mounted) { setUsers([]); setTotalCount(0); } });
+    }, 250);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [page, search, roleFilter, selectedBuildingId, refreshKey]);
+
+  useEffect(() => {
+    let mounted = true;
+    api.get("/Buildings").then((res) => { if (mounted) setBuildings(res.data.items); });
+    return () => { mounted = false; };
   }, []);
+
+  const fetchUsers = () => setRefreshKey((k) => k + 1);
 
   const handleAdd = async (form) => {
     // Register takes a single buildingId for the legacy field; sync the rest after
@@ -35,19 +62,21 @@ export default function UsersPage() {
       buildingId: buildingIds.length > 0 ? buildingIds[0] : null,
     });
 
-    // Re-fetch to get the new user's id, then sync all selected buildings
+    // Re-fetch all users to get the new user's id, then sync all selected buildings
     const res = await api.get("/Auth/users");
-    const newUser = res.data.find((u) => u.email === form.email);
+    const newUser = res.data.items.find((u) => u.email === form.email);
     if (newUser && buildingIds.length > 0) {
       await api.put(`/Auth/users/${newUser.id}/buildings/sync`, { buildingIds });
     }
 
-    await fetchUsers();
+    fetchUsers();
+    invalidateUsersCache();
     setShowAddModal(false);
     // errors bubble up to UserFormModal's catch — do not swallow here
   };
 
   const handleEdit = async (form) => {
+    if (!editingUser) return;
     const { buildingIds, ...rest } = form;
 
     // Update name/role
@@ -56,68 +85,32 @@ export default function UsersPage() {
     // Sync building assignments atomically
     await api.put(`/Auth/users/${editingUser.id}/buildings/sync`, { buildingIds });
 
-    await fetchUsers();
+    fetchUsers();
+    invalidateUsersCache();
     setEditingUser(null);
   };
 
-  const handleSort = (key) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  };
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    let rows = users;
-
-    // Building filter: show users assigned to this building, plus SuperAdmins (empty buildingIds)
-    if (selectedBuildingId !== "all") {
-      const bid = Number(selectedBuildingId);
-      rows = rows.filter(
-        (u) =>
-          (u.buildingIds ?? []).includes(bid) ||
-          (u.buildingIds ?? []).length === 0
-      );
-    }
-
-    if (q) {
-      rows = rows.filter(
-        (u) =>
-          u.fullName?.toLowerCase().includes(q) ||
-          u.email?.toLowerCase().includes(q)
-      );
-    }
-    if (roleFilter !== "all") {
-      rows = rows.filter((u) => u.role === roleFilter);
-    }
-    return [...rows].sort((a, b) => {
-      const av = (a[sortKey] ?? "").toLowerCase();
-      const bv = (b[sortKey] ?? "").toLowerCase();
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [users, selectedBuildingId, search, roleFilter, sortKey, sortDir]);
-
-  const SortIcon = ({ col }) => {
-    if (sortKey !== col) return <span className="sort-icon">↕</span>;
-    return <span className="sort-icon active">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  const handleOpenDelete = (user: AppUser) => {
+    setDeletingUser(user);
+    setReassignToId("");
+    setDeleteError(null);
+    api.get("/Auth/users").then((res) => setAllUsers(res.data.items)).catch(() => setAllUsers(users));
   };
 
   const handleDelete = async () => {
+    if (!deletingUser) return;
+    if (deletingUser.id === currentUser?.id) return;
     setDeleteError(null);
     try {
       await api.delete(`/Auth/users/${deletingUser.id}`, {
         data: { reassignToUserId: reassignToId || null },
       });
-      setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
+      fetchUsers();
+      invalidateUsersCache();
       setDeletingUser(null);
       setReassignToId("");
     } catch (err) {
-      setDeleteError(err.response?.data?.error || "Failed to remove user.");
+      setDeleteError(getErrorMessage(err));
     }
   };
 
@@ -149,7 +142,7 @@ export default function UsersPage() {
             className="table-filter-select"
             style={{ minWidth: 240 }}
             value={selectedBuildingId}
-            onChange={(e) => setSelectedBuildingId(e.target.value)}
+            onChange={(e) => { setSelectedBuildingId(e.target.value); setPage(1); }}
           >
             <option value="all">All buildings</option>
             {buildings.map((b) => (
@@ -171,13 +164,13 @@ export default function UsersPage() {
             type="text"
             placeholder="Search by name or email…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
           <div className="table-actions">
             <select
               className="table-filter-select"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
             >
               <option value="all">All roles</option>
               {ROLES.map((r) => (
@@ -194,15 +187,15 @@ export default function UsersPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th onClick={() => handleSort("fullName")}>Name <SortIcon col="fullName" /></th>
-                <th onClick={() => handleSort("email")}>Email <SortIcon col="email" /></th>
-                <th onClick={() => handleSort("role")}>Role <SortIcon col="role" /></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
                 <th>Buildings</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
+              {users.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
                     {search || roleFilter !== "all" || selectedBuildingId !== "all"
@@ -211,7 +204,7 @@ export default function UsersPage() {
                   </td>
                 </tr>
               )}
-              {filtered.map((user) => {
+              {users.map((user) => {
                 const userBuildings = (user.buildingIds ?? [])
                   .map((bid) => buildings.find((b) => b.buildingId === bid)?.name)
                   .filter(Boolean);
@@ -235,7 +228,9 @@ export default function UsersPage() {
                         </button>
                         <button
                           className="user-action-btn user-action-btn--danger"
-                          onClick={(e) => { e.stopPropagation(); setDeletingUser(user); }}
+                          onClick={(e) => { e.stopPropagation(); handleOpenDelete(user); }}
+                          disabled={user.id === currentUser?.id}
+                          title={user.id === currentUser?.id ? "You cannot remove your own account" : undefined}
                         >
                           Remove
                         </button>
@@ -247,7 +242,8 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
-        <p className="table-count">{filtered.length} of {users.length} user{users.length !== 1 ? "s" : ""}</p>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+        <p className="table-count">{totalCount} user{totalCount !== 1 ? "s" : ""}</p>
       </div>
 
       {showAddModal && (
@@ -271,7 +267,7 @@ export default function UsersPage() {
       )}
 
       {deletingUser && (
-        <div className="inventory-modal-backdrop" onClick={() => { setDeletingUser(null); setReassignToId(""); setDeleteError(null); }}>
+        <div className="inventory-modal-backdrop" onClick={() => { setDeletingUser(null); setReassignToId(""); setDeleteError(null); setAllUsers([]); }}>
           <div
             className="inventory-modal-card"
             onClick={(e) => e.stopPropagation()}
@@ -294,7 +290,7 @@ export default function UsersPage() {
                 onChange={(e) => setReassignToId(e.target.value)}
               >
                 <option value="">— No reassignment —</option>
-                {users
+                {allUsers
                   .filter((u) => u.id !== deletingUser.id)
                   .map((u) => (
                     <option key={u.id} value={u.id}>
@@ -304,14 +300,14 @@ export default function UsersPage() {
               </select>
             </div>
             {deleteError && (
-              <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
+              <div className="alert alert--danger alert--inline" style={{ marginTop: "0.25rem" }}>
                 {deleteError}
-              </p>
+              </div>
             )}
             <div className="inventory-modal-actions">
               <button
                 className="button inventory-modal-cancel"
-                onClick={() => { setDeletingUser(null); setReassignToId(""); setDeleteError(null); }}
+                onClick={() => { setDeletingUser(null); setReassignToId(""); setDeleteError(null); setAllUsers([]); }}
               >
                 Cancel
               </button>
@@ -330,7 +326,7 @@ export default function UsersPage() {
   );
 }
 
-function UserFormModal({ title, initial = {} as any, buildings = [], onSave, onClose, showPassword = false }) {
+function UserFormModal({ title, initial = {} as any, buildings = [] as AppBuilding[], onSave, onClose, showPassword = false }) {
   const [form, setForm] = useState({
     fullName: initial.fullName || "",
     email: initial.email || "",
@@ -338,7 +334,7 @@ function UserFormModal({ title, initial = {} as any, buildings = [], onSave, onC
     role: initial.role || "User",
     buildingIds: initial.buildingIds ?? [],
   });
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -358,14 +354,7 @@ function UserFormModal({ title, initial = {} as any, buildings = [], onSave, onC
     try {
       await onSave(form);
     } catch (err) {
-      const data = err.response?.data;
-      if (Array.isArray(data)) {
-        setError(data.map((e) => e.description).join(" "));
-      } else if (typeof data === "string") {
-        setError(data);
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      setError(getErrorMessage(err));
     }
   };
 
@@ -474,9 +463,9 @@ function UserFormModal({ title, initial = {} as any, buildings = [], onSave, onC
             </div>
           </div>
           {error && (
-            <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>
+            <div className="alert alert--danger alert--inline">
               {error}
-            </p>
+            </div>
           )}
           <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
             <button type="button" className="button inventory-modal-cancel" onClick={onClose}>

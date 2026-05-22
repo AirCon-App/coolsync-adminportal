@@ -9,8 +9,9 @@ import {
   SlLogin,
   SlMenu,
   SlDocs,
+  SlInfo,
 } from "react-icons/sl";
-import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper, TbLayoutList } from "react-icons/tb";
+import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper, TbLayoutList, TbClipboardList } from "react-icons/tb";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import CoolSyncLogo from "./CoolSyncLogo";
@@ -35,6 +36,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/home", label: "Dashboard", icon: SlGrid },
       { to: "/airhandlers", label: "Air Handlers", icon: TbAirConditioning },
+      { to: "/workorders", label: "Work Orders", icon: TbClipboardList },
       { to: "/inventory", label: "Inventory", icon: SlDrawer },
       { to: "/areas", label: "Areas", icon: TbLayoutList },
       { to: "/reports", label: "Reports", icon: SlChart },
@@ -47,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/buildings", label: "Buildings", icon: TbBuildingSkyscraper, superAdminOnly: true },
       { to: "/users", label: "Users", icon: SlPeople },
       { to: "/settings", label: "Settings", icon: SlSettings },
+      { to: "/about", label: "About", icon: SlInfo },
     ],
   },
 ];
@@ -102,6 +105,8 @@ export default function Sidebar() {
 
       <aside
         id="primary-sidebar"
+        aria-label="Primary sidebar"
+        aria-expanded={!collapsed}
         className={`sidebar${collapsed ? " sidebar--collapsed" : ""}${mobileOpen ? " sidebar--mobile-open" : ""}`}
       >
       <div className="sidebar-header">
@@ -112,7 +117,7 @@ export default function Sidebar() {
         <button
           className="sidebar-collapse-btn"
           onClick={() => setCollapsed((c) => !c)}
-          aria-label="Toggle sidebar"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             {collapsed ? (
@@ -142,6 +147,7 @@ export default function Sidebar() {
                   key={to}
                   to={to}
                   onClick={closeMobile}
+                  title={collapsed ? label : undefined}
                   className={({ isActive }) =>
                     `sidebar-nav-item${isActive ? " sidebar-nav-item--active" : ""}`
                   }
@@ -171,19 +177,10 @@ export default function Sidebar() {
             <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
           )}
         </button>
-        <NavLink
-          to="/usermanagement"
-          onClick={closeMobile}
-          className={({ isActive }) =>
-            `sidebar-nav-item${isActive ? " sidebar-nav-item--active" : ""}`
-          }
-        >
-          <SlSettings className="sidebar-nav-icon" />
-          {!collapsed && <span>My Account</span>}
-        </NavLink>
         <button
           className="sidebar-nav-item sidebar-logout-btn"
           onClick={() => { closeMobile(); handleLogout(); }}
+          aria-label="Sign out"
           data-testid="logout-button"
         >
           <SlLogin className="sidebar-nav-icon" />

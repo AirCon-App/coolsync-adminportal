@@ -1,5 +1,6 @@
 import { useState, useEffect, MouseEvent, KeyboardEvent } from "react";
 import api from "../data/api";
+import { getErrorMessage } from "../utils/apiError";
 
 interface Recipient {
   id: number;
@@ -38,7 +39,7 @@ export default function EmailReportModal({ buildingId, reportType, getPdfBase64,
   function toggleRecipient(id: number) {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
   }
@@ -57,8 +58,8 @@ export default function EmailReportModal({ buildingId, reportType, getPdfBase64,
         dateRange,
       });
       setSuccess(true);
-    } catch {
-      setError("Failed to send report. Please try again.");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setSending(false);
     }
@@ -79,8 +80,8 @@ export default function EmailReportModal({ buildingId, reportType, getPdfBase64,
       setSelected((prev) => new Set([...prev, res.data.id]));
       setNewName("");
       setNewEmail("");
-    } catch {
-      setAddError("Failed to add recipient.");
+    } catch (err) {
+      setAddError(getErrorMessage(err));
     } finally {
       setAddingNew(false);
     }
@@ -91,8 +92,8 @@ export default function EmailReportModal({ buildingId, reportType, getPdfBase64,
       await api.delete(`/ReportRecipients/${id}`);
       setRecipients((prev) => prev.filter((r) => r.id !== id));
       setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-    } catch {
-      setError("Failed to remove recipient.");
+    } catch (err) {
+      setError(getErrorMessage(err));
     }
   }
 
@@ -220,12 +221,12 @@ export default function EmailReportModal({ buildingId, reportType, getPdfBase64,
                 </button>
               </div>
               {addError && (
-                <p style={{ color: "var(--danger)", fontSize: "0.8rem", margin: "0.35rem 0 0" }}>{addError}</p>
+                <div className="alert alert--danger alert--inline" style={{ marginTop: "0.35rem" }}>{addError}</div>
               )}
             </div>
 
             {error && (
-              <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: "0 0 0.75rem" }}>{error}</p>
+              <div className="alert alert--danger alert--inline" style={{ marginBottom: "0.75rem" }}>{error}</div>
             )}
             <div className="inventory-modal-actions">
               <button

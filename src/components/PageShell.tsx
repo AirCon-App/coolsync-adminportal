@@ -4,7 +4,7 @@ import { TbBuilding } from "react-icons/tb";
 import Sidebar from "./sidebar";
 import { useBuilding } from "../context/BuildingContext";
 
-const GLOBAL_PAGES = ["/buildings", "/users", "/usermanagement"];
+const GLOBAL_PAGES = ["/buildings", "/users"];
 
 interface PageShellProps {
   children: ReactNode;

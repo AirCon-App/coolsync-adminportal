@@ -1,40 +1,66 @@
 import React, { useState, useEffect } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import type { Building } from "../types";
+import { getErrorMessage } from "../utils/apiError";
+import { Pagination } from "../components/Pagination";
+
+const PAGE_SIZE = 25;
 
 export default function BuildingsPage() {
-  const [buildings, setBuildings] = useState([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingBuilding, setEditingBuilding] = useState(null);
-  const [deletingBuilding, setDeletingBuilding] = useState(null);
-  const [deleteError, setDeleteError] = useState(null);
+  const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
+  const [deletingBuilding, setDeletingBuilding] = useState<Building | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get("/Buildings").then((res) => setBuildings(res.data));
-  }, []);
+    let mounted = true;
+    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+    if (search) params.set("search", search);
+    const t = setTimeout(() => {
+      api.get(`/Buildings?${params}`).then((res) => {
+        if (!mounted) return;
+        setBuildings(res.data.items);
+        setTotalCount(res.data.totalCount);
+      }).catch(() => { if (mounted) { setBuildings([]); setTotalCount(0); } });
+    }, 250);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [page, search]);
+
+  const refreshPage = async () => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+    if (search) params.set("search", search);
+    const res = await api.get(`/Buildings?${params}`);
+    setBuildings(res.data.items);
+    setTotalCount(res.data.totalCount);
+  };
 
   const handleAdd = async (form) => {
-    await api.post("/Buildings", form);
-    const res = await api.get("/Buildings");
-    setBuildings(res.data);
+    await api.post<Building>("/Buildings", form);
+    await refreshPage();
     setShowAddModal(false);
   };
 
   const handleEdit = async (form) => {
+    if (!editingBuilding) return;
     await api.put(`/Buildings/${editingBuilding.buildingId}`, form);
-    const res = await api.get("/Buildings");
-    setBuildings(res.data);
+    await refreshPage();
     setEditingBuilding(null);
   };
 
   const handleDelete = async () => {
+    if (!deletingBuilding) return;
     setDeleteError(null);
     try {
       await api.delete(`/Buildings/${deletingBuilding.buildingId}`);
-      setBuildings((prev) => prev.filter((b) => b.buildingId !== deletingBuilding.buildingId));
+      await refreshPage();
       setDeletingBuilding(null);
     } catch (err) {
-      setDeleteError(err.response?.data?.message || err.response?.data || "Failed to delete building.");
+      setDeleteError(getErrorMessage(err));
     }
   };
 
@@ -54,6 +80,13 @@ export default function BuildingsPage() {
               <span>+</span> Add building
             </button>
           </div>
+          <input
+            className="table-filter-select"
+            style={{ maxWidth: 240 }}
+            placeholder="Search buildings…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          />
         </div>
 
         <div className="data-table-wrap">
@@ -95,7 +128,8 @@ export default function BuildingsPage() {
             </tbody>
           </table>
         </div>
-        <p className="table-count">{buildings.length} building{buildings.length !== 1 ? "s" : ""}</p>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+        <p className="table-count">{totalCount} building{totalCount !== 1 ? "s" : ""}</p>
       </div>
 
       {showAddModal && (
@@ -125,9 +159,9 @@ export default function BuildingsPage() {
               This will also remove all associated air handlers and inventory. This cannot be undone.
             </p>
             {deleteError && (
-              <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
+              <div className="alert alert--danger alert--inline" style={{ marginTop: "0.25rem" }}>
                 {typeof deleteError === "string" ? deleteError : "Failed to delete."}
-              </p>
+              </div>
             )}
             <div className="inventory-modal-actions">
               <button
@@ -147,20 +181,23 @@ export default function BuildingsPage() {
   );
 }
 
-function BuildingFormModal({ title, initial = {} as any, onSave, onClose }) {
-  const [form, setForm] = useState({
-    name: initial.name || "",
-    address: initial.address || "",
-  });
-  const [error, setError] = useState(null);
+interface BuildingFormData { name: string; address: string; }
+interface BuildingFormModalProps { title: string; initial?: Partial<Building>; onSave: (form: BuildingFormData) => Promise<void>; onClose: () => void; }
 
-  const handleSubmit = async (e) => {
+function BuildingFormModal({ title, initial = {}, onSave, onClose }: BuildingFormModalProps) {
+  const [form, setForm] = useState<BuildingFormData>({
+    name: initial.name ?? "",
+    address: initial.address ?? "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
       await onSave(form);
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data || "Something went wrong.");
+      setError(getErrorMessage(err));
     }
   };
 
@@ -191,9 +228,9 @@ function BuildingFormModal({ title, initial = {} as any, onSave, onClose }) {
             />
           </div>
           {error && (
-            <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>
+            <div className="alert alert--danger alert--inline">
               {typeof error === "string" ? error : "Something went wrong."}
-            </p>
+            </div>
           )}
           <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
             <button type="button" className="button inventory-modal-cancel" onClick={onClose}>Cancel</button>

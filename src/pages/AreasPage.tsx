@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
@@ -6,6 +6,7 @@ import { useBuilding } from "../context/BuildingContext";
 import { Pagination } from "../components/Pagination";
 
 interface Area { id: number; name: string; sortOrder: number; }
+interface AreaHandler { id: number; airHandlerGuid: string; name: string; areaLabel?: string | null; }
 
 const PAGE_SIZE = 25;
 
@@ -19,8 +20,39 @@ export default function AreasPage() {
   const [editingArea, setEditingArea] = useState<Area | null>(null);
   const [deletingArea, setDeletingArea] = useState<Area | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [handlers, setHandlers] = useState<AreaHandler[]>([]);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
-  useEffect(() => { setPage(1); }, [activeBuilding]);
+  useEffect(() => { setPage(1); setExpanded(new Set()); }, [activeBuilding]);
+
+  // Load all air handlers for this building once, grouped client-side by area.
+  useEffect(() => {
+    if (!activeBuilding) { setHandlers([]); return; }
+    let mounted = true;
+    api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`).then((res) => {
+      if (mounted) setHandlers(res.data.items);
+    }).catch(() => { if (mounted) setHandlers([]); });
+    return () => { mounted = false; };
+  }, [activeBuilding]);
+
+  const handlersByArea = useMemo(() => {
+    const map = new Map<string, AreaHandler[]>();
+    handlers.forEach((h) => {
+      const key = (h.areaLabel ?? "").trim();
+      if (!key) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(h);
+    });
+    map.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name)));
+    return map;
+  }, [handlers]);
+
+  const toggleExpanded = (id: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     if (!activeBuilding) return;
@@ -49,9 +81,13 @@ export default function AreasPage() {
       pageSize: String(PAGE_SIZE),
     });
     if (search) params.set("search", search);
-    const res = await api.get(`/BuildingAreas?${params}`);
-    setAreas(res.data.items);
-    setTotalCount(res.data.totalCount);
+    const [areasRes, handlersRes] = await Promise.all([
+      api.get(`/BuildingAreas?${params}`),
+      api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`),
+    ]);
+    setAreas(areasRes.data.items);
+    setTotalCount(areasRes.data.totalCount);
+    setHandlers(handlersRes.data.items);
   };
 
   const handleAdd = async (form) => {
@@ -114,6 +150,7 @@ export default function AreasPage() {
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th>Air handlers</th>
                     <th>Sort order</th>
                     <th></th>
                   </tr>
@@ -121,28 +158,91 @@ export default function AreasPage() {
                 <tbody>
                   {areas.length === 0 && (
                     <tr>
-                      <td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                      <td colSpan={4} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
                         No areas yet. Add one to start grouping air handlers.
                       </td>
                     </tr>
                   )}
-                  {areas.map((a) => (
-                    <tr key={a.id} className="data-table-row">
-                      <td className="td-primary">{a.name}</td>
-                      <td style={{ color: "var(--text-secondary)" }}>{a.sortOrder}</td>
-                      <td>
-                        <div className="user-row-actions">
-                          <button className="user-action-btn" onClick={() => setEditingArea(a)}>Edit</button>
-                          <button
-                            className="user-action-btn user-action-btn--danger"
-                            onClick={() => { setDeletingArea(a); setDeleteError(null); }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {areas.map((a) => {
+                    const areaHandlers = handlersByArea.get(a.name.trim()) ?? [];
+                    const isExpanded = expanded.has(a.id);
+                    const hasHandlers = areaHandlers.length > 0;
+                    return (
+                      <React.Fragment key={a.id}>
+                        <tr className="data-table-row">
+                          <td className="td-primary">
+                            <button
+                              type="button"
+                              onClick={() => hasHandlers && toggleExpanded(a.id)}
+                              disabled={!hasHandlers}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                font: "inherit",
+                                color: "inherit",
+                                cursor: hasHandlers ? "pointer" : "default",
+                              }}
+                              aria-expanded={isExpanded}
+                            >
+                              <span
+                                style={{
+                                  fontSize: "0.7rem",
+                                  width: "0.8rem",
+                                  color: "var(--text-muted)",
+                                  visibility: hasHandlers ? "visible" : "hidden",
+                                }}
+                              >
+                                {isExpanded ? "▼" : "▶"}
+                              </span>
+                              {a.name}
+                            </button>
+                          </td>
+                          <td style={{ color: "var(--text-secondary)" }}>
+                            {hasHandlers
+                              ? `${areaHandlers.length} unit${areaHandlers.length !== 1 ? "s" : ""}`
+                              : <span className="td-empty">—</span>}
+                          </td>
+                          <td style={{ color: "var(--text-secondary)" }}>{a.sortOrder}</td>
+                          <td>
+                            <div className="user-row-actions">
+                              <button className="user-action-btn" onClick={() => setEditingArea(a)}>Edit</button>
+                              <button
+                                className="user-action-btn user-action-btn--danger"
+                                onClick={() => { setDeletingArea(a); setDeleteError(null); }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && hasHandlers && (
+                          <tr>
+                            <td colSpan={4} style={{ padding: 0, background: "var(--bg-subtle)" }}>
+                              <ul style={{ listStyle: "none", margin: 0, padding: "0.5rem 1rem 0.5rem 2.4rem" }}>
+                                {areaHandlers.map((h) => (
+                                  <li
+                                    key={h.id}
+                                    style={{
+                                      padding: "0.35rem 0",
+                                      color: "var(--text-secondary)",
+                                      fontSize: "0.9rem",
+                                      borderBottom: "1px solid var(--border)",
+                                    }}
+                                  >
+                                    {h.name}
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -12,16 +12,13 @@ import LedgerModal from "../components/LedgerModal";
 import type { InventoryItem, Area } from "../types/inventory";
 
 function StockBadge({ qty, minLevel }: { qty: number; minLevel: number }) {
-  const low = minLevel > 0 ? qty < minLevel : qty === 0;
+  const critical = qty === 0;
+  const low = !critical && minLevel > 0 && qty < minLevel;
+  const background = critical ? "var(--danger-sub)" : low ? "var(--warning-sub)" : "rgba(34,197,94,0.12)";
+  const color = critical ? "var(--danger)" : low ? "var(--warning)" : "var(--success)";
   return (
-    <span
-      className="stock-badge"
-      style={{
-        background: low ? "var(--danger-sub)" : "rgba(34,197,94,0.12)",
-        color: low ? "var(--danger)" : "var(--success)",
-      }}
-    >
-      {low ? "Low stock" : "In stock"}
+    <span className="stock-badge" style={{ background, color }}>
+      {critical ? "Out of stock" : low ? "Low stock" : "In stock"}
     </span>
   );
 }

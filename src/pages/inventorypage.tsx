@@ -9,16 +9,21 @@ import EditInventoryItemModal from "../components/EditInventoryItemModal";
 import BulkUploadModal from "../components/BulkUploadModal";
 import RestockModal from "../components/RestockModal";
 import LedgerModal from "../components/LedgerModal";
-import type { InventoryItem, Area } from "../types/inventory";
+import type { InventoryItem, Area, StockStatus } from "../types/inventory";
 
-function StockBadge({ qty, minLevel }: { qty: number; minLevel: number }) {
-  const critical = qty === 0;
-  const low = !critical && minLevel > 0 && qty < minLevel;
-  const background = critical ? "var(--danger-sub)" : low ? "var(--warning-sub)" : "rgba(34,197,94,0.12)";
-  const color = critical ? "var(--danger)" : low ? "var(--warning)" : "var(--success)";
+const STOCK_BADGE: Record<StockStatus, { background: string; color: string; label: string }> = {
+  // Severity is computed server-side (single source of truth, config-driven thresholds).
+  NoStock: { background: "var(--danger)", color: "#fff", label: "No stock" }, // solid bright red
+  Critical: { background: "var(--danger-sub)", color: "var(--danger)", label: "Critical" },
+  Low: { background: "var(--warning-sub)", color: "var(--warning)", label: "Low stock" },
+  InStock: { background: "rgba(34,197,94,0.12)", color: "var(--success)", label: "In stock" },
+};
+
+function StockBadge({ status }: { status?: StockStatus }) {
+  const { background, color, label } = STOCK_BADGE[status ?? "InStock"];
   return (
     <span className="stock-badge" style={{ background, color }}>
-      {critical ? "Out of stock" : low ? "Low stock" : "In stock"}
+      {label}
     </span>
   );
 }
@@ -146,8 +151,10 @@ export default function InventoryPage() {
               data-testid="stock-filter"
             >
               <option value="all">All stock levels</option>
-              <option value="in">In stock</option>
+              <option value="nostock">No stock</option>
+              <option value="critical">Critical</option>
               <option value="low">Low stock</option>
+              <option value="instock">In stock</option>
             </select>
             <select
               className="table-filter-select"
@@ -230,7 +237,7 @@ export default function InventoryPage() {
                   <td>{item.quantity}</td>
                   <td>{(item.minLevel ?? 0) > 0 ? item.minLevel : <span className="td-empty">—</span>}</td>
                   <td>{(item.reorderQty ?? 0) > 0 ? item.reorderQty : <span className="td-empty">—</span>}</td>
-                  <td><StockBadge qty={item.quantity} minLevel={item.minLevel ?? 0} /></td>
+                  <td><StockBadge status={item.status} /></td>
                   <td className="td-arrow">›</td>
                 </tr>
               ))}

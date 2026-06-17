@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { TbBuilding } from "react-icons/tb";
 import Sidebar from "./sidebar";
+import NotificationBell from "./NotificationBell";
 import { useBuilding } from "../context/BuildingContext";
 
 const GLOBAL_PAGES = ["/buildings", "/users"];
@@ -19,12 +20,17 @@ export default function PageShell({ children }: PageShellProps) {
     <div className="app-layout">
       <Sidebar />
       <main className="page-content">
-        {!isGlobalPage && activeBuilding && (
-          <div className="building-context-bar">
-            <TbBuilding size={14} />
-            <span>Viewing: <strong>{activeBuilding.name}</strong></span>
-          </div>
-        )}
+        <div className="page-topbar">
+          {!isGlobalPage && activeBuilding ? (
+            <div className="building-context-bar">
+              <TbBuilding size={14} />
+              <span>Viewing: <strong>{activeBuilding.name}</strong></span>
+            </div>
+          ) : (
+            <span />
+          )}
+          {activeBuilding && <NotificationBell buildingId={activeBuilding.buildingId} />}
+        </div>
         {children}
       </main>
     </div>

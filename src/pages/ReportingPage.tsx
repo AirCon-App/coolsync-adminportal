@@ -6,6 +6,7 @@ import { MdOutlineEmail } from "react-icons/md";
 import TimeFrameSelector from "../components/TimeFrameSelector";
 import EmailReportModal from "../components/EmailReportModal";
 import { useBuilding } from "../context/BuildingContext";
+import { formatDate } from "../utils/formatDate";
 
 // ─── Server-computed report contract (mirrors @coolsync/types BuiltInReport) ──
 
@@ -172,7 +173,7 @@ export default function ReportingPage() {
   const [emailModal, setEmailModal] = useState<{ label: string; reportType: ReportType } | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
-  const today = new Date().toLocaleDateString();
+  const today = formatDate(new Date());
   const selectedBuildingName = activeBuilding?.name ?? "";
 
   function handleTimeFrameChange({ dateFrom: f, dateTo: t }: { dateFrom: Date; dateTo: Date }) {

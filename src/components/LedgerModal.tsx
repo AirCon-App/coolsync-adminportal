@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
+import { formatDate } from "../utils/formatDate";
 
 interface LedgerEntry {
   id: number;
@@ -192,7 +193,7 @@ export default function LedgerModal({ buildingId, catalogItemId, itemName, onClo
                 return (
                   <tr key={entry.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem 0.75rem", whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
-                      {new Date(entry.createdAt).toLocaleDateString()}{" "}
+                      {formatDate(entry.createdAt)}{" "}
                       <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
                         {new Date(entry.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>

@@ -3,6 +3,7 @@ import { SlCheck } from "react-icons/sl";
 import api from "../../data/api";
 import { getErrorMessage } from "../../utils/apiError";
 import { describeCron, PRESET_LABEL } from "../../utils/cron";
+import { formatDateTime } from "../../utils/formatDate";
 
 const JOB_LABELS: Record<string, { title: string; desc: string }> = {
   "low-stock-alerts": {
@@ -121,7 +122,7 @@ export function JobsTab() {
                     </span>
                   </div>
                   <span className="message-time">
-                    Updated {new Date(j.updatedAt).toLocaleString()}
+                    Updated {formatDateTime(j.updatedAt)}
                   </span>
                 </header>
 

@@ -5,6 +5,7 @@ import PageShell from "../components/PageShell";
 import { useUsers } from "../hooks/useUsers";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
+import { formatDate } from "../utils/formatDate";
 
 interface WorkOrder { id: number; completedDate?: string; activityDate?: string; dueDate?: string; count?: number; technicianId?: string; notes?: string; }
 interface AirHandlerDetail { airHandlerGuid: string; name: string; description?: string; areaLabel?: string; filtersName?: string; quantity?: number; scheduleChangeInterval?: string; sku?: string; catalogItemId?: number | null; buildingId: number; workOrders?: WorkOrder[]; }
@@ -64,7 +65,7 @@ function AgendaView({ workOrders, users }) {
     if (diffDays === 0) return "Due today";
     if (diffDays === 1) return "Due tomorrow";
     if (diffDays <= 7) return `Due in ${diffDays} days`;
-    return `Due ${date.toLocaleDateString()}`;
+    return `Due ${formatDate(date)}`;
   };
 
   if (upcomingOrders.length === 0) {
@@ -389,9 +390,9 @@ export default function AirHandlerDetailPage() {
                           </span>
                         </div>
                         <p className="inventory-subtitle">Filters: {wo.count}</p>
-                        {wo.dueDate && <p className="inventory-subtitle">Due: {new Date(wo.dueDate).toLocaleDateString()}</p>}
+                        {wo.dueDate && <p className="inventory-subtitle">Due: {formatDate(wo.dueDate)}</p>}
                         {(wo.completedDate || wo.activityDate) && (
-                          <p className="inventory-subtitle">Completed: {new Date((wo.activityDate ?? wo.completedDate)!).toLocaleDateString()}</p>
+                          <p className="inventory-subtitle">Completed: {formatDate(wo.activityDate ?? wo.completedDate)}</p>
                         )}
                         {wo.technicianId && (
                           <p className="inventory-subtitle">

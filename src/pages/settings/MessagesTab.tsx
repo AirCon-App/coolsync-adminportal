@@ -4,6 +4,7 @@ import { TbEdit } from "react-icons/tb";
 import api from "../../data/api";
 import { getErrorMessage } from "../../utils/apiError";
 import WorkOrderEditModal, { WorkOrderModalData } from "../../components/WorkOrderEditModal";
+import { formatDateTime } from "../../utils/formatDate";
 
 export function MessagesTab({ buildingId }: { buildingId: number }) {
   const [allRows, setAllRows] = useState<any[]>([]);
@@ -103,7 +104,7 @@ export function MessagesTab({ buildingId }: { buildingId: number }) {
                     </span>
                   </div>
                   <time className="message-time" dateTime={m.createdAt}>
-                    {new Date(m.createdAt).toLocaleString()}
+                    {formatDateTime(m.createdAt)}
                   </time>
                 </header>
 

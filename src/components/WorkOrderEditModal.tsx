@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
+import { formatDateTime } from "../utils/formatDate";
 
 export interface WorkOrderModalData {
   id: number;
@@ -142,7 +143,7 @@ export default function WorkOrderEditModal({ workOrder, onClose, onSaved, messag
 
         {workOrder.activityDate && (
           <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
-            Last admin edit: {new Date(workOrder.activityDate).toLocaleString()}
+            Last admin edit: {formatDateTime(workOrder.activityDate)}
           </p>
         )}
 

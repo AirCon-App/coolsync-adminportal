@@ -19,8 +19,23 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 function parseJwt(token: string): JwtPayload | null {
   try {
-    const payload = token.split(".")[1];
-    return JSON.parse(atob(payload));
+    const part = token.split(".")[1];
+    if (!part) return null;
+    // JWTs are base64URL-encoded; atob() only accepts standard base64 and throws
+    // (InvalidCharacterError) on the URL-safe characters "-" and "_". Convert and
+    // pad before decoding, then read the bytes as UTF-8 so non-ASCII claim values
+    // (e.g. accented names) survive. Raw atob() silently broke login for any user
+    // whose token payload contained "-" or "_".
+    let b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    const json = decodeURIComponent(
+      atob(b64)
+        .split("")
+        .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+        .join("")
+    );
+    return JSON.parse(json);
   } catch {
     return null;
   }

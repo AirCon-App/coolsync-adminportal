@@ -107,7 +107,7 @@ export function OverviewTab({ activeBuilding, setTab, navigate }: OverviewTabPro
         </p>
       </div>
 
-      <BackfillConsumptionCard buildingId={activeBuilding.buildingId} />
+      <BackfillConsumptionCard />
     </>
   );
 }
@@ -145,7 +145,7 @@ interface BackfillResult {
   rows: BackfillRow[];
 }
 
-function BackfillConsumptionCard({ buildingId }: { buildingId: number }) {
+function BackfillConsumptionCard() {
   const [status, setStatus] = useState<"idle" | "previewing" | "preview-done" | "applying" | "done" | "error">("idle");
   const [result, setResult] = useState<BackfillResult | null>(null);
   const [error, setError] = useState<string | null>(null);

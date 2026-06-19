@@ -10,14 +10,16 @@ interface Recipient {
 
 interface EmailReportModalProps {
   buildingId: number;
-  reportType: string;
-  getPdfBase64: () => Promise<string>;
+  reportType: string;            // display label, e.g. "Filter Activity"
+  apiReportType: "filter" | "inventory"; // server report key
+  dateFrom: Date;
+  dateTo: Date;
   buildingName: string;
   dateRange: string;
   onClose: () => void;
 }
 
-export default function EmailReportModal({ buildingId, reportType, getPdfBase64, buildingName, dateRange, onClose }: EmailReportModalProps) {
+export default function EmailReportModal({ buildingId, reportType, apiReportType, dateFrom, dateTo, buildingName, dateRange, onClose }: EmailReportModalProps) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -49,13 +51,14 @@ export default function EmailReportModal({ buildingId, reportType, getPdfBase64,
     setSending(true);
     setError(null);
     try {
-      const pdfBase64 = await getPdfBase64();
-      await api.post("/Reports/email", {
+      // The PDF is computed and rendered server-side (single source of truth,
+      // shared with the mobile email path) — the client only sends parameters.
+      await api.post(`/Reports/email?buildingId=${buildingId}`, {
         recipientIds: [...selected],
-        pdfBase64,
-        reportType,
-        buildingName,
-        dateRange,
+        reportType: apiReportType,
+        buildingId,
+        from: dateFrom.toISOString(),
+        to: dateTo.toISOString(),
       });
       setSuccess(true);
     } catch (err) {

@@ -23,10 +23,6 @@ type BuiltInReport = {
   summary: string[];
 };
 
-const PDF_HEAD_STYLES = { fillColor: [37, 99, 235] as [number, number, number] };
-const PDF_STYLES = { fontSize: 9, cellPadding: 3 };
-const PDF_ALT_ROW = { fillColor: [245, 247, 250] as [number, number, number] };
-
 function toneColor(tone?: ReportTone) {
   if (tone === "danger") return "var(--danger)";
   if (tone === "success") return "var(--success)";
@@ -173,7 +169,7 @@ export default function ReportingPage() {
   const [dateTo, setDateTo] = useState(() => new Date());
 
   // Email modal state
-  const [emailModal, setEmailModal] = useState<{ reportType: string; getPdfBase64: () => Promise<string> } | null>(null);
+  const [emailModal, setEmailModal] = useState<{ label: string; reportType: ReportType } | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   const today = new Date().toLocaleDateString();
@@ -207,71 +203,35 @@ export default function ReportingPage() {
     return () => { mounted = false; };
   }, [activeBuilding, dateFrom, dateTo]);
 
-  // ─── PDF export (generic — renders any BuiltInReport) ────────────────────
-
-  async function loadPdfLibs() {
-    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-      import("jspdf"),
-      import("jspdf-autotable"),
-    ]);
-    return { jsPDF, autoTable };
-  }
-
-  async function buildReportPdfDoc(report: BuiltInReport) {
-    const { jsPDF, autoTable } = await loadPdfLibs();
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    doc.setFontSize(18).setFont(doc.getFont().fontName, "bold").text(report.title, 14, 20);
-    doc.setFontSize(11).setFont(doc.getFont().fontName, "normal").text(report.buildingName, 14, 29);
-    doc.setFontSize(9).text(`${today}  |  ${report.dateRange}`, 14, 36);
-    doc.setFontSize(11).setFont(doc.getFont().fontName, "bold").text("NJ Filters", pageWidth - 14, 20, { align: "right" });
-
-    let y = 44;
-    report.sections.forEach((section, idx) => {
-      if (idx > 0) y = (doc as any).lastAutoTable.finalY + 12;
-      doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text(section.title, 14, y);
-      autoTable(doc, {
-        startY: y + 4,
-        head: [section.columns],
-        body: section.rows.length > 0
-          ? section.rows.map((r) => r.cells.map((c) => c.text))
-          : [["No records in this period.", ...Array(Math.max(section.columns.length - 1, 0)).fill("")]],
-        headStyles: PDF_HEAD_STYLES,
-        styles: PDF_STYLES,
-        alternateRowStyles: PDF_ALT_ROW,
-      });
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(10).setFont(doc.getFont().fontName, "bold").text(`Summary (${report.dateRange})`, 14, y);
-    report.summary.forEach((line, i) => {
-      doc.setFontSize(9).setFont(doc.getFont().fontName, "normal").text(`• ${line}`, 18, y + 8 + i * 6);
-    });
-
-    return doc;
-  }
+  // ─── PDF export ──────────────────────────────────────────────────────────
+  // The PDF is rendered server-side (QuestPDF) — the same renderer the mobile
+  // app's emailed reports use — so the admin download and the mobile email are
+  // the same document. We just fetch the rendered bytes and download them.
 
   async function exportPDF(report: BuiltInReport) {
+    if (!activeBuilding) return;
     setPdfError(null);
     try {
-      const doc = await buildReportPdfDoc(report);
-      doc.save(`${report.title.replace(/\s+/g, "")}_${selectedBuildingName}_${today}.pdf`);
+      const res = await api.get(`/reports/built-in/${report.reportType}/pdf`, {
+        params: { buildingId: activeBuilding.buildingId, from: dateFrom.toISOString(), to: dateTo.toISOString() },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data as Blob);
+      try {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${report.title.replace(/\s+/g, "")}_${selectedBuildingName}_${today}.pdf`;
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
       setPdfError(err instanceof Error ? `Failed to export PDF: ${err.message}` : "Failed to generate PDF. Please try again.");
     }
   }
 
   function emailHandler(report: BuiltInReport, label: string) {
-    return () => setEmailModal({
-      reportType: label,
-      getPdfBase64: async () => {
-        const dataUri = (await buildReportPdfDoc(report)).output("datauristring");
-        const parts = dataUri.split(",");
-        if (parts.length < 2) throw new Error("Failed to encode PDF.");
-        return parts[1];
-      },
-    });
+    return () => setEmailModal({ label, reportType: report.reportType });
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────
@@ -363,8 +323,10 @@ export default function ReportingPage() {
       {emailModal && (
         <EmailReportModal
           buildingId={activeBuilding?.buildingId ?? 0}
-          reportType={emailModal.reportType}
-          getPdfBase64={emailModal.getPdfBase64}
+          reportType={emailModal.label}
+          apiReportType={emailModal.reportType}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
           buildingName={selectedBuildingName}
           dateRange={(filterReport ?? inventoryReport)?.dateRange ?? ""}
           onClose={() => setEmailModal(null)}

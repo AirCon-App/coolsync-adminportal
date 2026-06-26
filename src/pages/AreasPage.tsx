@@ -4,15 +4,17 @@ import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
 import { useBuilding } from "../context/BuildingContext";
 import { Pagination } from "../components/Pagination";
+import AssignHandlersModal from "../components/AssignHandlersModal";
 
 interface Area { id: number; name: string; sortOrder: number; }
-interface AreaHandler { id: number; airHandlerGuid: string; name: string; areaLabel?: string | null; }
+interface AreaHandler { id: number; airHandlerGuid: string; name: string; areaId?: number | null; areaLabel?: string | null; }
 
 const PAGE_SIZE = 25;
 
 export default function AreasPage() {
   const { activeBuilding } = useBuilding();
   const [areas, setAreas] = useState<Area[]>([]);
+  const [allAreas, setAllAreas] = useState<Area[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -22,8 +24,13 @@ export default function AreasPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [handlers, setHandlers] = useState<AreaHandler[]>([]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [assignToArea, setAssignToArea] = useState<Area | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [moveTarget, setMoveTarget] = useState<string>("");
+  const [ungroupTarget, setUngroupTarget] = useState<string>("");
 
-  useEffect(() => { setPage(1); setExpanded(new Set()); }, [activeBuilding]);
+  useEffect(() => { setPage(1); setExpanded(new Set()); setSelected(new Set()); }, [activeBuilding]);
 
   // Load all air handlers for this building once, grouped client-side by area.
   useEffect(() => {
@@ -35,20 +42,42 @@ export default function AreasPage() {
     return () => { mounted = false; };
   }, [activeBuilding]);
 
+  // Load the complete area list (no paging) for destination dropdowns.
+  useEffect(() => {
+    if (!activeBuilding) { setAllAreas([]); return; }
+    let mounted = true;
+    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => {
+      if (mounted) setAllAreas(res.data.items);
+    }).catch(() => { if (mounted) setAllAreas([]); });
+    return () => { mounted = false; };
+  }, [activeBuilding]);
+
+  // Group handlers by areaId now that the backend returns it.
   const handlersByArea = useMemo(() => {
-    const map = new Map<string, AreaHandler[]>();
+    const map = new Map<number, AreaHandler[]>();
     handlers.forEach((h) => {
-      const key = (h.areaLabel ?? "").trim();
-      if (!key) return;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(h);
+      if (h.areaId == null) return;
+      if (!map.has(h.areaId)) map.set(h.areaId, []);
+      map.get(h.areaId)!.push(h);
     });
     map.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name)));
     return map;
   }, [handlers]);
 
+  const ungrouped = useMemo(
+    () => handlers.filter((h) => h.areaId == null).sort((a, b) => a.name.localeCompare(b.name)),
+    [handlers],
+  );
+
   const toggleExpanded = (id: number) =>
     setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  const toggleSelected = (id: number) =>
+    setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -75,19 +104,37 @@ export default function AreasPage() {
 
   const refresh = async () => {
     if (!activeBuilding) return;
+    setSelected(new Set());
     const params = new URLSearchParams({
       buildingId: String(activeBuilding.buildingId),
       page: String(page),
       pageSize: String(PAGE_SIZE),
     });
     if (search) params.set("search", search);
-    const [areasRes, handlersRes] = await Promise.all([
+    const [areasRes, allAreasRes, handlersRes] = await Promise.all([
       api.get(`/BuildingAreas?${params}`),
+      api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`),
       api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`),
     ]);
     setAreas(areasRes.data.items);
     setTotalCount(areasRes.data.totalCount);
+    setAllAreas(allAreasRes.data.items);
     setHandlers(handlersRes.data.items);
+  };
+
+  const bulkAssign = async (handlerIds: number[], areaId: number | null) => {
+    if (!activeBuilding || handlerIds.length === 0) return;
+    setActionError(null);
+    try {
+      await api.post("/AirHandlers/bulk-assign-area", {
+        buildingId: activeBuilding.buildingId,
+        handlerIds,
+        areaId,
+      });
+      await refresh();
+    } catch (err) {
+      setActionError(getErrorMessage(err));
+    }
   };
 
   const handleAdd = async (form) => {
@@ -130,6 +177,12 @@ export default function AreasPage() {
           <p style={{ color: "var(--text-muted)" }}>Select a building to manage its areas.</p>
         ) : (
           <>
+            {actionError && (
+              <div className="alert alert--danger alert--inline" style={{ marginBottom: "1rem" }}>
+                {typeof actionError === "string" ? actionError : "Action failed."}
+              </div>
+            )}
+
             <div className="table-toolbar">
               <div className="table-actions">
                 <button className="inventory-button" onClick={() => setShowAddModal(true)}>
@@ -164,9 +217,10 @@ export default function AreasPage() {
                     </tr>
                   )}
                   {areas.map((a) => {
-                    const areaHandlers = handlersByArea.get(a.name.trim()) ?? [];
+                    const areaHandlers = handlersByArea.get(a.id) ?? [];
                     const isExpanded = expanded.has(a.id);
                     const hasHandlers = areaHandlers.length > 0;
+                    const selectedHere = areaHandlers.filter((h) => selected.has(h.id)).map((h) => h.id);
                     return (
                       <React.Fragment key={a.id}>
                         <tr className="data-table-row">
@@ -209,6 +263,7 @@ export default function AreasPage() {
                           <td style={{ color: "var(--text-secondary)" }}>{a.sortOrder}</td>
                           <td>
                             <div className="user-row-actions">
+                              <button className="user-action-btn" onClick={() => setAssignToArea(a)}>Assign handlers</button>
                               <button className="user-action-btn" onClick={() => setEditingArea(a)}>Edit</button>
                               <button
                                 className="user-action-btn user-action-btn--danger"
@@ -222,18 +277,74 @@ export default function AreasPage() {
                         {isExpanded && hasHandlers && (
                           <tr>
                             <td colSpan={4} style={{ padding: 0, background: "var(--bg-subtle)" }}>
+                              {selectedHere.length > 0 && (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    alignItems: "center",
+                                    gap: "0.6rem",
+                                    padding: "0.6rem 1rem 0.6rem 2.4rem",
+                                    borderBottom: "1px solid var(--border)",
+                                  }}
+                                >
+                                  <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                    {selectedHere.length} selected
+                                  </span>
+                                  <label style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                                    <select
+                                      className="table-filter-select"
+                                      value={moveTarget}
+                                      onChange={(e) => setMoveTarget(e.target.value)}
+                                    >
+                                      <option value="">Move to area…</option>
+                                      {allAreas.filter((opt) => opt.id !== a.id).map((opt) => (
+                                        <option key={opt.id} value={opt.id}>{opt.name}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      className="user-action-btn"
+                                      disabled={!moveTarget}
+                                      onClick={() => { bulkAssign(selectedHere, Number(moveTarget)); setMoveTarget(""); }}
+                                    >
+                                      Move
+                                    </button>
+                                  </label>
+                                  <button
+                                    className="user-action-btn user-action-btn--danger"
+                                    onClick={() => bulkAssign(selectedHere, null)}
+                                  >
+                                    Remove from area
+                                  </button>
+                                </div>
+                              )}
                               <ul style={{ listStyle: "none", margin: 0, padding: "0.5rem 1rem 0.5rem 2.4rem" }}>
                                 {areaHandlers.map((h) => (
                                   <li
                                     key={h.id}
                                     style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.6rem",
                                       padding: "0.35rem 0",
                                       color: "var(--text-secondary)",
                                       fontSize: "0.9rem",
                                       borderBottom: "1px solid var(--border)",
                                     }}
                                   >
-                                    {h.name}
+                                    <input
+                                      type="checkbox"
+                                      checked={selected.has(h.id)}
+                                      onChange={() => toggleSelected(h.id)}
+                                      style={{ cursor: "pointer" }}
+                                    />
+                                    <span style={{ flex: 1 }}>{h.name}</span>
+                                    <button
+                                      className="user-action-btn"
+                                      onClick={() => bulkAssign([h.id], null)}
+                                    >
+                                      Remove
+                                    </button>
                                   </li>
                                 ))}
                               </ul>
@@ -248,6 +359,79 @@ export default function AreasPage() {
             </div>
             <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
             <p className="table-count">{totalCount} area{totalCount !== 1 ? "s" : ""}</p>
+
+            {ungrouped.length > 0 && (
+              <div style={{ marginTop: "2rem" }}>
+                <h2 style={{ color: "var(--text-primary)", fontSize: "1.05rem", marginBottom: "0.4rem" }}>
+                  Ungrouped handlers
+                </h2>
+                <p style={{ color: "var(--text-muted)", marginTop: 0, marginBottom: "0.75rem", fontSize: "0.85rem" }}>
+                  {ungrouped.length} air handler{ungrouped.length !== 1 ? "s" : ""} not assigned to any area.
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "0.6rem",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  <select
+                    className="table-filter-select"
+                    value={ungroupTarget}
+                    onChange={(e) => setUngroupTarget(e.target.value)}
+                  >
+                    <option value="">Assign selected to area…</option>
+                    {allAreas.map((opt) => (
+                      <option key={opt.id} value={opt.id}>{opt.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="user-action-btn"
+                    disabled={!ungroupTarget || ungrouped.every((h) => !selected.has(h.id))}
+                    onClick={() => {
+                      bulkAssign(ungrouped.filter((h) => selected.has(h.id)).map((h) => h.id), Number(ungroupTarget));
+                      setUngroupTarget("");
+                    }}
+                  >
+                    Assign
+                  </button>
+                </div>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    margin: 0,
+                    padding: 0,
+                    border: "1px solid var(--border)",
+                    borderRadius: "0.5rem",
+                  }}
+                >
+                  {ungrouped.map((h) => (
+                    <li
+                      key={h.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.6rem",
+                        padding: "0.5rem 0.85rem",
+                        color: "var(--text-secondary)",
+                        fontSize: "0.9rem",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.has(h.id)}
+                        onChange={() => toggleSelected(h.id)}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <span style={{ flex: 1 }}>{h.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -269,6 +453,17 @@ export default function AreasPage() {
         />
       )}
 
+      {assignToArea && activeBuilding && (
+        <AssignHandlersModal
+          buildingId={activeBuilding.buildingId}
+          areaId={assignToArea.id}
+          areaName={assignToArea.name}
+          handlers={handlers}
+          onClose={() => setAssignToArea(null)}
+          onSaved={async () => { await refresh(); setAssignToArea(null); }}
+        />
+      )}
+
       {deletingArea && (
         <div className="inventory-modal-backdrop" onClick={() => { setDeletingArea(null); setDeleteError(null); }}>
           <div className="inventory-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -276,7 +471,9 @@ export default function AreasPage() {
             <p>
               Are you sure you want to delete{" "}
               <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{deletingArea.name}</span>?
-              Air handlers in this area will become ungrouped.
+              Any air handlers still assigned to this area must be removed or moved to another area first
+              (use the area's handler list or the “Assign handlers” action) — the area cannot be deleted
+              while it still has handlers.
             </p>
             {deleteError && (
               <div className="alert alert--danger alert--inline" style={{ marginTop: "0.25rem" }}>

@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { TbAlertTriangle, TbCircleCheck, TbArrowRight } from "react-icons/tb";
 import api from "../data/api";
 import { useBuilding } from "../context/BuildingContext";
+import { useAuth } from "../context/AuthContext";
+import ProcurementOutlook from "../components/ProcurementOutlook";
 
 interface WorkOrder {
   handler: string;
@@ -49,6 +51,9 @@ function complianceColor(pct: number | null): string | undefined {
 
 export default function HomePage() {
   const { activeBuilding } = useBuilding();
+  const { user } = useAuth();
+  const isSuperAdmin = !!(user?.isSuperAdmin || user?.role === "SuperAdmin");
+  const [view, setView] = useState<"building" | "portfolio">("building");
   const [airHandlers, setAirHandlers] = useState<AirHandler[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -201,9 +206,55 @@ export default function HomePage() {
     weekday: "long", month: "long", day: "numeric",
   });
 
+  const portfolioToggle = isSuperAdmin ? (
+    <div className="dash-viewtoggle" role="tablist" aria-label="Dashboard scope">
+      <button
+        type="button"
+        role="tab"
+        data-testid="dash-view-building"
+        aria-selected={view === "building"}
+        className={`dash-viewtoggle-btn${view === "building" ? " is-active" : ""}`}
+        onClick={() => setView("building")}
+      >
+        This building
+      </button>
+      <button
+        type="button"
+        role="tab"
+        data-testid="dash-view-portfolio"
+        aria-selected={view === "portfolio"}
+        className={`dash-viewtoggle-btn${view === "portfolio" ? " is-active" : ""}`}
+        onClick={() => setView("portfolio")}
+      >
+        All buildings
+      </button>
+    </div>
+  ) : null;
+
+  // SuperAdmin portfolio (cross-building) view — independent of the active building.
+  if (isSuperAdmin && view === "portfolio") {
+    return (
+      <PageShell>
+        <div className="dash">
+          <div className="dash-header">
+            <div>
+              <h1 className="dash-building">Portfolio Outlook</h1>
+              <p className="dash-date">{today}</p>
+            </div>
+            {portfolioToggle}
+          </div>
+          <ProcurementOutlook />
+        </div>
+      </PageShell>
+    );
+  }
+
   if (!activeBuilding) {
     return (
       <PageShell>
+        {portfolioToggle && (
+          <div className="dash-header dash-header--toggle-only">{portfolioToggle}</div>
+        )}
         <div className="dash-empty-state">
           <p className="dash-empty-label">Select a building from the sidebar to view your dashboard.</p>
         </div>
@@ -220,6 +271,7 @@ export default function HomePage() {
             <h1 className="dash-building">{activeBuilding.name}</h1>
             <p className="dash-date">{today}</p>
           </div>
+          {portfolioToggle}
         </div>
 
         {fetchError && (

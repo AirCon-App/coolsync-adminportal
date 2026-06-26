@@ -206,7 +206,6 @@ export default function InventoryPage() {
               <tr>
                 <th>Item name</th>
                 <th>SKU</th>
-                <th>Area</th>
                 <th>Qty</th>
                 <th>Min Level</th>
                 <th>Reorder Qty</th>
@@ -217,7 +216,7 @@ export default function InventoryPage() {
             <tbody>
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                  <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
                     {search || stockFilter !== "all" || areaFilter !== "all"
                       ? "No items match your filters."
                       : "No inventory items yet."}
@@ -233,7 +232,6 @@ export default function InventoryPage() {
                 >
                   <td className="td-primary">{item.catalogItem?.name || <span className="td-empty">Unknown</span>}</td>
                   <td className="td-mono">{item.catalogItem?.sku || <span className="td-empty">—</span>}</td>
-                  <td>{item.areaName || <span className="td-empty">—</span>}</td>
                   <td>{item.quantity}</td>
                   <td>{(item.minLevel ?? 0) > 0 ? item.minLevel : <span className="td-empty">—</span>}</td>
                   <td>{(item.reorderQty ?? 0) > 0 ? item.reorderQty : <span className="td-empty">—</span>}</td>
@@ -259,7 +257,6 @@ export default function InventoryPage() {
       {showEditModal && editItem && (
         <EditInventoryItemModal
           item={editItem}
-          areas={areas}
           onClose={() => { setShowEditModal(false); setEditItem(null); }}
           onSaved={refresh}
           onViewHistory={(item) => handleOpenLedger(item)}

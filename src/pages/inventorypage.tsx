@@ -9,7 +9,7 @@ import EditInventoryItemModal from "../components/EditInventoryItemModal";
 import BulkUploadModal from "../components/BulkUploadModal";
 import RestockModal from "../components/RestockModal";
 import LedgerModal from "../components/LedgerModal";
-import type { InventoryItem, Area, StockStatus } from "../types/inventory";
+import type { InventoryItem, StockStatus } from "../types/inventory";
 
 const STOCK_BADGE: Record<StockStatus, { background: string; color: string; label: string }> = {
   // Severity is computed server-side (single source of truth, config-driven thresholds).
@@ -37,8 +37,6 @@ export default function InventoryPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [search, setSearch] = useState("");
   const [stockFilter, setStockFilter] = useState("all");
-  const [areaFilter, setAreaFilter] = useState("all");
-  const [areas, setAreas] = useState<Area[]>([]);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Modal visibility
@@ -64,8 +62,6 @@ export default function InventoryPage() {
     params.set("buildingId", String(activeBuilding.buildingId));
     if (search) params.set("search", search);
     if (stockFilter !== "all") params.set("stockStatus", stockFilter);
-    if (areaFilter === "none") params.set("areaId", "0");
-    else if (areaFilter !== "all") params.set("areaId", areaFilter);
     const t = setTimeout(() => {
       api.get(`/Inventory?${params}`).then((res) => {
         if (!mounted) return;
@@ -74,15 +70,7 @@ export default function InventoryPage() {
       }).catch(() => { if (mounted) { setData([]); setTotalCount(0); } });
     }, 250);
     return () => { mounted = false; clearTimeout(t); };
-  }, [activeBuilding, page, search, stockFilter, areaFilter, refreshKey]);
-
-  useEffect(() => {
-    if (!activeBuilding) return;
-    let mounted = true;
-    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`)
-      .then((res) => { if (mounted) setAreas(res.data.items); });
-    return () => { mounted = false; };
-  }, [activeBuilding]);
+  }, [activeBuilding, page, search, stockFilter, refreshKey]);
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -156,18 +144,6 @@ export default function InventoryPage() {
               <option value="low">Low stock</option>
               <option value="instock">In stock</option>
             </select>
-            <select
-              className="table-filter-select"
-              value={areaFilter}
-              onChange={(e) => { setAreaFilter(e.target.value); setPage(1); }}
-              data-testid="area-filter"
-            >
-              <option value="all">All areas</option>
-              <option value="none">Unassigned</option>
-              {areas.map((a) => (
-                <option key={a.id} value={String(a.id)}>{a.name}</option>
-              ))}
-            </select>
             <button className="inventory-button inventory-button--secondary" onClick={handleDownloadTemplate}>
               Download Template
             </button>
@@ -217,7 +193,7 @@ export default function InventoryPage() {
               {data.length === 0 && (
                 <tr>
                   <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
-                    {search || stockFilter !== "all" || areaFilter !== "all"
+                    {search || stockFilter !== "all"
                       ? "No items match your filters."
                       : "No inventory items yet."}
                   </td>

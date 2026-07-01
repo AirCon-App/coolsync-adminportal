@@ -2,6 +2,10 @@ export interface CatalogItem {
   catalogItemId: number;
   name: string;
   sku?: string;
+  /** Archived items are inactive. Returned only when fetching with includeArchived=true. */
+  isActive?: boolean;
+  /** True for auto-created items a SuperAdmin has not yet confirmed. */
+  needsReview?: boolean;
 }
 
 export type StockStatus = "NoStock" | "Critical" | "Low" | "InStock";

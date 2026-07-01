@@ -10,6 +10,7 @@ import {
   SlMenu,
   SlDocs,
   SlInfo,
+  SlBookOpen,
 } from "react-icons/sl";
 import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper, TbLayoutList, TbClipboardList } from "react-icons/tb";
 import { useTheme } from "../context/ThemeContext";
@@ -47,6 +48,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Admin",
     items: [
       { to: "/buildings", label: "Buildings", icon: TbBuildingSkyscraper, superAdminOnly: true },
+      { to: "/catalog", label: "Catalog", icon: SlBookOpen, superAdminOnly: true },
       { to: "/users", label: "Users", icon: SlPeople },
       { to: "/settings", label: "Settings", icon: SlSettings },
       { to: "/about", label: "About", icon: SlInfo },

@@ -1,15 +1,23 @@
 import { useState, useEffect } from "react";
 import { SlCheck } from "react-icons/sl";
-import { TbCopy, TbRefreshAlert } from "react-icons/tb";
+import { TbCopy, TbPlus, TbRefresh, TbTrash } from "react-icons/tb";
 import api from "../../data/api";
 import { getErrorMessage } from "../../utils/apiError";
 import { formatDateTime } from "../../utils/formatDate";
 
+interface DemoSlot {
+  ordinal: number;
+  profileName: string;
+  provisioned: boolean;
+  buildingId: number | null;
+  buildingName: string | null;
+  demoUsers: string[];
+}
+
 interface DemoStatus {
   provisioned: boolean;
-  buildingId?: number;
-  buildingName?: string;
-  demoUsers?: string[];
+  maxBuildings: number;
+  slots: DemoSlot[];
 }
 
 interface DemoResetResult {
@@ -24,16 +32,43 @@ interface DemoResetResult {
   resetAt: string;
 }
 
+interface DemoDeleteResult {
+  buildingId: number;
+  buildingName: string;
+  usersRemoved: string[];
+}
+
+type SlotAction = "populate" | "refresh" | "delete";
+
+interface LastAction {
+  action: SlotAction;
+  seed?: DemoResetResult;
+  deletion?: DemoDeleteResult;
+}
+
+const actionButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.25rem",
+  fontSize: "0.75rem",
+  padding: "0.25rem 0.7rem",
+  borderRadius: "999px",
+  border: "1px solid var(--border, currentColor)",
+  background: "none",
+  color: "var(--text-secondary)",
+  cursor: "pointer",
+};
+
 export function DemoTab() {
   const [status, setStatus] = useState<DemoStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [resetting, setResetting] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [acting, setActing] = useState<{ ordinal: number; action: SlotAction } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<DemoResetResult | null>(null);
+  const [lastAction, setLastAction] = useState<LastAction | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  // The switcher's building list is fetched at login; a freshly provisioned demo building
-  // won't appear in it until the app reloads.
+  // The switcher's building list is fetched at login; a freshly populated demo building
+  // won't appear in it (nor a deleted one disappear) until the app reloads.
   const [showReloadHint, setShowReloadHint] = useState(false);
 
   const refresh = async () => {
@@ -50,10 +85,10 @@ export function DemoTab() {
   useEffect(() => { refresh(); }, []);
 
   useEffect(() => {
-    if (!confirming) return;
-    const t = setTimeout(() => setConfirming(false), 5000);
+    if (confirmingDelete === null) return;
+    const t = setTimeout(() => setConfirmingDelete(null), 5000);
     return () => clearTimeout(t);
-  }, [confirming]);
+  }, [confirmingDelete]);
 
   useEffect(() => {
     if (!copied) return;
@@ -61,24 +96,29 @@ export function DemoTab() {
     return () => clearTimeout(t);
   }, [copied]);
 
-  const handleReset = async () => {
-    if (!confirming) {
-      setConfirming(true);
+  const runAction = async (slot: DemoSlot, action: SlotAction) => {
+    if (action === "delete" && confirmingDelete !== slot.ordinal) {
+      setConfirmingDelete(slot.ordinal);
       return;
     }
-    setConfirming(false);
+    setConfirmingDelete(null);
     setError(null);
-    setResetting(true);
-    const wasFirstRun = !provisioned;
+    setActing({ ordinal: slot.ordinal, action });
     try {
-      const r = await api.post<DemoResetResult>(`/demo/reset`);
-      setLastResult(r.data);
-      setShowReloadHint(wasFirstRun);
+      if (action === "delete") {
+        const r = await api.delete<DemoDeleteResult>(`/demo/slots/${slot.ordinal}`);
+        setLastAction({ action, deletion: r.data });
+        setShowReloadHint(true);
+      } else {
+        const r = await api.post<DemoResetResult>(`/demo/slots/${slot.ordinal}/${action}`);
+        setLastAction({ action, seed: r.data });
+        if (action === "populate" && !slot.provisioned) setShowReloadHint(true);
+      }
       await refresh();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
-      setResetting(false);
+      setActing(null);
     }
   };
 
@@ -87,22 +127,27 @@ export function DemoTab() {
     setCopied(email);
   };
 
-  const provisioned = status?.provisioned === true;
-  const firstRun = !provisioned;
+  const provisionedCount = status?.slots.filter((s) => s.provisioned).length ?? 0;
+  const busy = acting !== null || loading;
 
   return (
     <div className="settings-card">
       <div className="settings-card-header">
         <h2 className="settings-card-title">Demo tenant</h2>
-        <span className={`pill pill--${provisioned ? "success" : "muted"}`}>
-          {loading ? "Checking…" : provisioned ? "Provisioned" : "Not provisioned"}
+        <span className={`pill pill--${provisionedCount > 0 ? "success" : "muted"}`}>
+          {loading ? "Checking…" : provisionedCount > 0
+            ? `Provisioned (${provisionedCount}/${status?.maxBuildings ?? 5})`
+            : "Not provisioned"}
         </span>
       </div>
       <p className="settings-card-desc">
-        A sandboxed demo building with realistic, time-shifted data for sales demos and
-        screen-shares. It is invisible to real users, excluded from cross-building reports,
-        and never emails anyone. Data is refreshed automatically every night — use the button
-        below to restore a pristine dataset right before a demo.
+        Up to {status?.maxBuildings ?? 5} sandboxed demo buildings with realistic, time-shifted
+        data for sales demos and screen-shares — each with its own areas, air handlers, and demo
+        accounts. They are invisible to real users, excluded from cross-building reports, and
+        never email anyone. Provisioned buildings are refreshed automatically every night.
+        <strong> Populate</strong> creates and seeds a building, <strong>Refresh</strong> restores
+        its pristine dataset, and <strong>Delete</strong> removes the building, all of its data,
+        and its demo accounts.
       </p>
 
       {error && (
@@ -111,75 +156,129 @@ export function DemoTab() {
         </div>
       )}
 
-      {provisioned && (
-        <div style={{ marginBottom: "0.85rem" }}>
-          <p style={{ margin: "0 0 0.4rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-            Building: <strong style={{ color: "var(--text-primary)" }}>{status?.buildingName}</strong>
-            {" "}<span className="demo-badge">DEMO</span>
-          </p>
-          <p style={{ margin: "0 0 0.3rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-            Demo accounts (hand these to the presenter):
-          </p>
-          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-            {(status?.demoUsers ?? []).map((email) => (
-              <li key={email} style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
-                <code style={{ fontSize: "0.8rem" }}>{email}</code>
-                <button
-                  className="icon-button"
-                  onClick={() => copyEmail(email)}
-                  aria-label={`Copy ${email}`}
-                  title="Copy email"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, display: "inline-flex" }}
-                >
-                  <TbCopy size={14} />
-                </button>
-                {copied === email && <span className="saved-flash"><SlCheck /> Copied</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {(status?.slots ?? []).map((slot) => {
+          const isActing = acting?.ordinal === slot.ordinal;
+          return (
+            <li
+              key={slot.ordinal}
+              data-testid={`demo-slot-${slot.ordinal}`}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.35rem",
+                padding: "0.6rem 0.75rem",
+                border: "1px solid var(--border, rgba(128,128,128,0.35))",
+                borderRadius: "0.5rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <strong style={{ color: "var(--text-primary)", fontSize: "0.9rem" }}>
+                  {slot.buildingName ?? slot.profileName}
+                </strong>
+                <span className="demo-badge">DEMO</span>
+                <span className={`pill pill--${slot.provisioned ? "success" : "muted"}`}>
+                  {slot.provisioned ? "Provisioned" : "Empty"}
+                </span>
+                <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+                  {!slot.provisioned && (
+                    <button
+                      style={actionButtonStyle}
+                      onClick={() => runAction(slot, "populate")}
+                      disabled={busy}
+                      data-testid={`demo-populate-${slot.ordinal}`}
+                    >
+                      <TbPlus size={13} />
+                      {isActing && acting?.action === "populate" ? "Populating…" : "Populate"}
+                    </button>
+                  )}
+                  {slot.provisioned && (
+                    <>
+                      <button
+                        style={actionButtonStyle}
+                        onClick={() => runAction(slot, "refresh")}
+                        disabled={busy}
+                        data-testid={`demo-refresh-${slot.ordinal}`}
+                      >
+                        <TbRefresh size={13} />
+                        {isActing && acting?.action === "refresh" ? "Refreshing…" : "Refresh"}
+                      </button>
+                      <button
+                        style={{ ...actionButtonStyle, color: "var(--danger, #c0392b)", borderColor: "var(--danger, #c0392b)" }}
+                        onClick={() => runAction(slot, "delete")}
+                        disabled={busy}
+                        data-testid={`demo-delete-${slot.ordinal}`}
+                      >
+                        <TbTrash size={13} />
+                        {isActing && acting?.action === "delete"
+                          ? "Deleting…"
+                          : confirmingDelete === slot.ordinal
+                            ? "Click again to confirm"
+                            : "Delete"}
+                      </button>
+                    </>
+                  )}
+                </span>
+              </div>
+              {confirmingDelete === slot.ordinal && (
+                <span style={{ color: "var(--warning)", fontSize: "0.78rem" }}>
+                  Deletes this building, all of its data, and its demo accounts.
+                </span>
+              )}
+              {slot.provisioned && (
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  {slot.demoUsers.map((email) => (
+                    <li key={email} style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                      <code style={{ fontSize: "0.8rem" }}>{email}</code>
+                      <button
+                        className="icon-button"
+                        onClick={() => copyEmail(email)}
+                        aria-label={`Copy ${email}`}
+                        title="Copy email"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, display: "inline-flex" }}
+                      >
+                        <TbCopy size={14} />
+                      </button>
+                      {copied === email && <span className="saved-flash"><SlCheck /> Copied</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-        <button
-          className="inventory-button"
-          onClick={handleReset}
-          disabled={resetting || loading}
-          data-testid="demo-reset-button"
-        >
-          <TbRefreshAlert style={{ marginRight: "0.35rem", verticalAlign: "-0.12em" }} />
-          {resetting
-            ? (firstRun ? "Provisioning…" : "Resetting…")
-            : confirming
-              ? "Click again to confirm"
-              : (firstRun ? "Provision demo tenant" : "Reset demo data")}
-        </button>
-        {confirming && (
-          <span style={{ color: "var(--warning)", fontSize: "0.8rem" }}>
-            This wipes and reseeds all demo-building data.
-          </span>
-        )}
-      </div>
-
-      {lastResult && (
+      {lastAction?.seed && (
         <div style={{ marginTop: "0.85rem" }}>
           <p style={{ margin: "0 0 0.4rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-            Reset completed {formatDateTime(lastResult.resetAt)} — seeded:
+            {lastAction.action === "populate" ? "Populated" : "Refreshed"}{" "}
+            <strong style={{ color: "var(--text-primary)" }}>{lastAction.seed.buildingName}</strong>{" "}
+            {formatDateTime(lastAction.seed.resetAt)} — seeded:
           </p>
           <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-            <span className="pill pill--info">{lastResult.areas} areas</span>
-            <span className="pill pill--info">{lastResult.airHandlers} air handlers</span>
-            <span className="pill pill--info">{lastResult.inventoryItems} inventory lines</span>
-            <span className="pill pill--info">{lastResult.openWorkOrders} open work orders</span>
-            <span className="pill pill--info">{lastResult.completedWorkOrders} completed work orders</span>
-            <span className="pill pill--info">{lastResult.consumptionLogs} consumption logs</span>
+            <span className="pill pill--info">{lastAction.seed.areas} areas</span>
+            <span className="pill pill--info">{lastAction.seed.airHandlers} air handlers</span>
+            <span className="pill pill--info">{lastAction.seed.inventoryItems} inventory lines</span>
+            <span className="pill pill--info">{lastAction.seed.openWorkOrders} open work orders</span>
+            <span className="pill pill--info">{lastAction.seed.completedWorkOrders} completed work orders</span>
+            <span className="pill pill--info">{lastAction.seed.consumptionLogs} consumption logs</span>
           </div>
-          {showReloadHint && (
-            <p style={{ margin: "0.6rem 0 0", color: "var(--text-muted)", fontSize: "0.82rem" }}>
-              Reload the page to see the demo building in the building switcher.
-            </p>
-          )}
         </div>
+      )}
+      {lastAction?.deletion && (
+        <p style={{ margin: "0.85rem 0 0", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+          Deleted <strong style={{ color: "var(--text-primary)" }}>{lastAction.deletion.buildingName}</strong>
+          {lastAction.deletion.usersRemoved.length > 0 && (
+            <> and removed {lastAction.deletion.usersRemoved.map((e) => <code key={e} style={{ fontSize: "0.8rem", marginLeft: "0.3rem" }}>{e}</code>)}</>
+          )}
+          .
+        </p>
+      )}
+      {showReloadHint && (
+        <p style={{ margin: "0.6rem 0 0", color: "var(--text-muted)", fontSize: "0.82rem" }}>
+          Reload the page to update the building switcher.
+        </p>
       )}
     </div>
   );

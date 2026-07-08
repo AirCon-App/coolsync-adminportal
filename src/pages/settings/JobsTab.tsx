@@ -20,7 +20,7 @@ const JOB_LABELS: Record<string, { title: string; desc: string }> = {
   },
   "demo-reset": {
     title: "Demo data refresh",
-    desc: "Wipes and reseeds the demo building with fresh, time-shifted data. Does nothing until the demo tenant is provisioned (Settings → Demo Tenant).",
+    desc: "Wipes and reseeds every demo building with fresh, time-shifted data. Does nothing until the demo tenant is provisioned (Settings → Demo Tenant).",
   },
 };
 

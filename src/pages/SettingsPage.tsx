@@ -6,8 +6,9 @@ import {
   SlCalender,
   SlBell,
 } from "react-icons/sl";
-import { TbLayoutList, TbClockHour4, TbAlertTriangle, TbClipboardCheck } from "react-icons/tb";
+import { TbLayoutList, TbClockHour4, TbAlertTriangle, TbClipboardCheck, TbFlask } from "react-icons/tb";
 import PageShell from "../components/PageShell";
+import { useAuth } from "../context/AuthContext";
 import { useBuilding } from "../context/BuildingContext";
 import { SettingsStyles, BuildingRequired } from "./settings/shared";
 import { OverviewTab } from "./settings/OverviewTab";
@@ -18,6 +19,7 @@ import { MessagesTab } from "./settings/MessagesTab";
 import { AreasTab } from "./settings/AreasTab";
 import { AlertsTab } from "./settings/AlertsTab";
 import { WorkOrdersTab } from "./settings/WorkOrdersTab";
+import { DemoTab } from "./settings/DemoTab";
 
 const TABS = [
   { key: "general",    label: "Overview",         icon: SlInfo,             needsBuilding: false },
@@ -28,14 +30,19 @@ const TABS = [
   { key: "jobs",       label: "Job Cadence",       icon: TbClockHour4,      needsBuilding: false },
   { key: "messages",   label: "Messages",          icon: SlBell,            needsBuilding: true  },
   { key: "areas",      label: "Areas",             icon: TbLayoutList,      needsBuilding: false },
+  { key: "demo",       label: "Demo Tenant",       icon: TbFlask,           needsBuilding: false, superAdminOnly: true },
 ];
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { activeBuilding } = useBuilding();
   const [tab, setTab] = useState("general");
 
-  const activeTabDef = TABS.find((t) => t.key === tab);
+  const isSuperAdmin = user?.isSuperAdmin || user?.role === "SuperAdmin";
+  const visibleTabs = TABS.filter((t) => !t.superAdminOnly || isSuperAdmin);
+
+  const activeTabDef = visibleTabs.find((t) => t.key === tab);
   const needsBuilding = activeTabDef?.needsBuilding && !activeBuilding;
 
   return (
@@ -52,7 +59,7 @@ export default function SettingsPage() {
         </header>
 
         <div className="settings-tabbar" role="tablist" aria-label="Settings sections">
-          {TABS.map((t) => {
+          {visibleTabs.map((t) => {
             const Icon = t.icon;
             const selected = tab === t.key;
             return (
@@ -89,6 +96,7 @@ export default function SettingsPage() {
           {!needsBuilding && tab === "jobs"       && <JobsTab />}
           {!needsBuilding && tab === "messages"   && <MessagesTab buildingId={activeBuilding!.buildingId} />}
           {!needsBuilding && tab === "areas"      && <AreasTab activeBuilding={activeBuilding} navigate={navigate} />}
+          {!needsBuilding && tab === "demo" && isSuperAdmin && <DemoTab />}
         </section>
       </div>
     </PageShell>

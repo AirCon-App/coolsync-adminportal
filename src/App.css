@@ -353,6 +353,19 @@ a {
   opacity: 0.6;
 }
 
+/* Demo tenant marker (ADR-015) — a screen-share must never be mistaken for customer data */
+.demo-badge {
+  flex-shrink: 0;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--warning);
+  background: var(--warning-sub);
+  color: var(--warning);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .building-switcher-dropdown {
   position: absolute;
   left: 0.6rem;

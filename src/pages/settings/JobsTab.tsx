@@ -14,6 +14,14 @@ const JOB_LABELS: Record<string, { title: string; desc: string }> = {
     title: "Scheduled reports",
     desc: "Sends recurring summary emails per building based on each building's Report Schedule cadence.",
   },
+  "notification-evaluation": {
+    title: "Notification evaluation",
+    desc: "Evaluates alert conditions (low stock, overdue work orders) and creates in-app notifications.",
+  },
+  "demo-reset": {
+    title: "Demo data refresh",
+    desc: "Wipes and reseeds the demo building with fresh, time-shifted data. Does nothing until the demo tenant is provisioned (Settings → Demo Tenant).",
+  },
 };
 
 const CRON_PRESETS = Object.entries(PRESET_LABEL).map(([value, label]) => ({ label, value }));

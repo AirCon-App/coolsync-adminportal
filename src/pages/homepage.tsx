@@ -96,13 +96,16 @@ export default function HomePage() {
 
   const metrics = useMemo(() => {
     const now = new Date();
-    const open = workOrders.filter((wo) => !wo.completedDate && !wo.activityDate);
+    // Open-ness by completedDate alone (matches backend + mobile); activityDate is an admin-edit
+    // stamp, not a completion signal. The service/change date still prefers activityDate (the
+    // admin-corrected date) per BuiltInReportService.
+    const open = workOrders.filter((wo) => !wo.completedDate);
     const overdueCount = open.filter((wo) => wo.dueDate && new Date(wo.dueDate) < now).length;
     const lowStockCount = inventory.filter(
       (i) => (i.minLevel ?? 0) > 0 && i.quantity < i.minLevel!
     ).length;
     const completed = workOrders.filter(
-      (wo) => (wo.completedDate || wo.activityDate) && wo.dueDate
+      (wo) => wo.completedDate && wo.dueDate
     );
     const onTime = completed.filter((wo) => {
       const serviceDate = new Date((wo.activityDate ?? wo.completedDate)!);
@@ -154,7 +157,7 @@ export default function HomePage() {
     const thirtyAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const sevenAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     return workOrders
-      .filter((wo) => !wo.completedDate && !wo.activityDate && wo.dueDate && new Date(wo.dueDate) <= thirtyAhead)
+      .filter((wo) => !wo.completedDate && wo.dueDate && new Date(wo.dueDate) <= thirtyAhead)
       .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
       .slice(0, 8)
       .map((wo) => {
@@ -174,8 +177,8 @@ export default function HomePage() {
     const fourteenBack = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     return workOrders
       .filter((wo) => {
+        if (!wo.completedDate) return false; // only genuinely-completed orders count as recent service
         const sd = wo.activityDate ?? wo.completedDate;
-        if (!sd) return false;
         const d = new Date(sd);
         return d >= fourteenBack && d <= now;
       })

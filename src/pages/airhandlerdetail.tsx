@@ -15,7 +15,9 @@ interface CatalogItem { catalogItemId: number; name: string; sku?: string; }
 
 function woStatus(wo) {
   const now = new Date();
-  if (wo.completedDate || wo.activityDate) return "completed";
+  // Open-ness is defined by completedDate alone (matches backend + mobile). activityDate is an
+  // admin-edit stamp, not a completion signal — it can land on a still-open order.
+  if (wo.completedDate) return "completed";
   if (!wo.dueDate) return "upcoming";
   const due = new Date(wo.dueDate);
   if (due < now) return "overdue";
@@ -47,7 +49,7 @@ function AgendaView({ workOrders, users }) {
 
   const upcomingOrders = useMemo(() => {
     return workOrders
-      .filter((wo) => !wo.completedDate && !wo.activityDate)
+      .filter((wo) => !wo.completedDate)
       .sort((a, b) => {
         const aDate = a.dueDate ? new Date(a.dueDate) : new Date(9999, 0);
         const bDate = b.dueDate ? new Date(b.dueDate) : new Date(9999, 0);
@@ -391,7 +393,7 @@ export default function AirHandlerDetailPage() {
                         </div>
                         <p className="inventory-subtitle">Filters: {wo.count}</p>
                         {wo.dueDate && <p className="inventory-subtitle">Due: {formatDate(wo.dueDate)}</p>}
-                        {(wo.completedDate || wo.activityDate) && (
+                        {wo.completedDate && (
                           <p className="inventory-subtitle">Completed: {formatDate(wo.activityDate ?? wo.completedDate)}</p>
                         )}
                         {wo.technicianId && (

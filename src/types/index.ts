@@ -10,6 +10,7 @@ export interface User {
 export interface Building {
   buildingId: number;
   name: string;
+  isDemo?: boolean;
   address?: string;
   city?: string;
   state?: string;

@@ -7,7 +7,7 @@ import { useBuilding } from "../context/BuildingContext";
 import { useAuth } from "../context/AuthContext";
 import { Pagination } from "../components/Pagination";
 
-interface AirHandler { id: number; airHandlerGuid: string; name: string; description?: string; filtersName?: string; sku?: string; quantity?: number; scheduleChangeInterval?: string; areaLabel?: string; }
+interface AirHandler { id: number; airHandlerGuid: string; name: string; description?: string; filtersName?: string; sku?: string; quantity?: number; scheduleChangeInterval?: string; areaId?: number | null; areaLabel?: string; }
 interface CatalogItem { catalogItemId: number; name: string; sku?: string; }
 interface BuildingArea { id: number; name: string; }
 
@@ -52,6 +52,11 @@ export default function AirHandlersPage() {
   const [backfillResult, setBackfillResult] = useState<{ matched: number; unmatched: number } | null>(null);
   const [backfillError, setBackfillError] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [editingHandler, setEditingHandler] = useState<AirHandler | null>(null);
+  const [editAreaId, setEditAreaId] = useState("");
+  const [editNewAreaName, setEditNewAreaName] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const navigate = useNavigate();
   const { activeBuilding } = useBuilding();
   const { user } = useAuth();
@@ -208,6 +213,48 @@ export default function AirHandlersPage() {
     }
   };
 
+  const handleOpenEdit = (ah: AirHandler) => {
+    setEditingHandler(ah);
+    setEditAreaId(ah.areaId != null ? String(ah.areaId) : "");
+    setEditNewAreaName("");
+    setEditError(null);
+  };
+
+  const handleSaveArea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingHandler || !activeBuilding) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      let resolvedAreaId = editAreaId && editAreaId !== "__new__" ? Number(editAreaId) : null;
+
+      if (editAreaId === "__new__" && editNewAreaName.trim()) {
+        const areaRes = await api.post("/BuildingAreas", {
+          buildingId: activeBuilding.buildingId,
+          name: editNewAreaName.trim(),
+          sortOrder: 0,
+        });
+        resolvedAreaId = areaRes.data.id;
+        setBuildingAreas((prev) => [...prev, areaRes.data]);
+        setAreaLabelSuggestions((prev) =>
+          [...new Set<string>([...prev, areaRes.data.name])].sort()
+        );
+      }
+
+      await api.post("/AirHandlers/bulk-assign-area", {
+        buildingId: activeBuilding.buildingId,
+        handlerIds: [editingHandler.id],
+        areaId: resolvedAreaId,
+      });
+      setRefreshKey((k) => k + 1);
+      setEditingHandler(null);
+    } catch (err) {
+      setEditError(getErrorMessage(err));
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleBackfill = async () => {
     setBackfilling(true);
     setBackfillResult(null);
@@ -297,7 +344,14 @@ export default function AirHandlersPage() {
       <td className="td-mono">{ah.sku || <span className="td-empty">—</span>}</td>
       <td>{ah.quantity ?? <span className="td-empty">—</span>}</td>
       <td>{ah.scheduleChangeInterval || <span className="td-empty">—</span>}</td>
-      <td className="td-arrow">›</td>
+      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+        <button
+          className="user-action-btn"
+          onClick={(e) => { e.stopPropagation(); handleOpenEdit(ah); }}
+        >
+          Edit area
+        </button>
+      </td>
     </tr>
   );
 
@@ -539,6 +593,50 @@ export default function AirHandlersPage() {
               <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
                 <button type="button" className="button inventory-modal-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
                 <button type="submit" className="button">Add</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit area Modal */}
+      {editingHandler && (
+        <div className="inventory-modal-backdrop" onClick={() => setEditingHandler(null)}>
+          <div className="inventory-modal-card" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+            <h2>Assign area</h2>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: 0 }}>
+              Set the area for <strong style={{ color: "var(--text-primary)" }}>{editingHandler.name}</strong>.
+            </p>
+            <form onSubmit={handleSaveArea} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div>
+                <label className="user-form-label">Area / Floor</label>
+                <select
+                  className="inventory-modal-input"
+                  style={{ marginBottom: 0 }}
+                  value={editAreaId}
+                  onChange={(e) => setEditAreaId(e.target.value)}
+                >
+                  <option value="">— No area —</option>
+                  {buildingAreas.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                  <option value="__new__">+ Add new area…</option>
+                </select>
+                {editAreaId === "__new__" && (
+                  <input
+                    className="inventory-modal-input"
+                    style={{ marginBottom: 0, marginTop: "0.4rem" }}
+                    placeholder="New area name (e.g. Floor 3, Lobby)"
+                    value={editNewAreaName}
+                    onChange={(e) => setEditNewAreaName(e.target.value)}
+                    autoFocus
+                  />
+                )}
+              </div>
+              {editError && <div className="alert alert--danger alert--inline">{typeof editError === "string" ? editError : "Failed to update area."}</div>}
+              <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
+                <button type="button" className="button inventory-modal-cancel" onClick={() => setEditingHandler(null)}>Cancel</button>
+                <button type="submit" className="button" disabled={editSaving}>{editSaving ? "Saving…" : "Save"}</button>
               </div>
             </form>
           </div>

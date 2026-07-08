@@ -1,5 +1,5 @@
 import client from "./api";
-import type { ReportRecipient } from "../types";
+import type { ReportRecipient, ProcurementOutlook } from "../types";
 import type {
   ReportTemplate,
   ReportField,
@@ -81,6 +81,14 @@ export const reportSchedulesApi = {
 
   triggerSchedule: (id: number) =>
     client.post<{ triggered: boolean; nextRun: string }>(`/reportschedules/${id}/run`),
+};
+
+// Cross-building procurement outlook (ADR-011) — SuperAdmin only on the server.
+export const procurementApi = {
+  getOutlook: (horizonDays: number) =>
+    client.get<ProcurementOutlook>(
+      `/reports/built-in/procurement-outlook?horizonDays=${horizonDays}`
+    ),
 };
 
 export const recipientsApi = {

@@ -1,21 +1,19 @@
 import { useState, useEffect } from "react";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
-import type { InventoryItem, Area } from "../types/inventory";
+import type { InventoryItem } from "../types/inventory";
 
 interface Props {
   item: InventoryItem;
-  areas: Area[];
   onClose: () => void;
   onSaved: () => void;
   onViewHistory: (item: InventoryItem) => void;
 }
 
-export default function EditInventoryItemModal({ item, areas, onClose, onSaved, onViewHistory }: Props) {
+export default function EditInventoryItemModal({ item, onClose, onSaved, onViewHistory }: Props) {
   const [editQty, setEditQty] = useState(item.quantity);
   const [editMinLevel, setEditMinLevel] = useState(item.minLevel ?? 0);
   const [editReorderQty, setEditReorderQty] = useState(item.reorderQty ?? 0);
-  const [editAreaId, setEditAreaId] = useState<string>(item.areaId != null ? String(item.areaId) : "");
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Close on Escape
@@ -28,7 +26,6 @@ export default function EditInventoryItemModal({ item, areas, onClose, onSaved, 
   const handleSave = async () => {
     setSaveError(null);
     try {
-      const areaIdValue = editAreaId === "" ? null : Number(editAreaId);
       await api.put(`/Inventory/${item.itemNumber}`, {
         itemNumber: item.itemNumber,
         catalogItemId: item.catalogItem?.catalogItemId,
@@ -36,7 +33,8 @@ export default function EditInventoryItemModal({ item, areas, onClose, onSaved, 
         quantity: editQty,
         minLevel: editMinLevel,
         reorderQty: editReorderQty,
-        areaId: areaIdValue,
+        // Area is managed from the Areas page, not here — preserve the item's current area.
+        areaId: item.areaId ?? null,
       });
       onSaved();
       onClose();
@@ -89,20 +87,6 @@ export default function EditInventoryItemModal({ item, areas, onClose, onSaved, 
               onChange={(e) => { const v = Number(e.target.value); if (!Number.isNaN(v)) setEditReorderQty(v); }}
               placeholder="0 = not set"
             />
-          </div>
-          <div>
-            <label className="user-form-label">Area</label>
-            <select
-              className="inventory-modal-input"
-              style={{ marginBottom: 0 }}
-              value={editAreaId}
-              onChange={(e) => setEditAreaId(e.target.value)}
-            >
-              <option value="">— Unassigned —</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
           </div>
         </div>
         {saveError && (

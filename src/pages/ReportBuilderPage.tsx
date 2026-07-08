@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import PageShell from "../components/PageShell";
 import { useBuilding } from "../context/BuildingContext";
+import { formatDate } from "../utils/formatDate";
 import { reportTemplatesApi, reportSchedulesApi, recipientsApi } from "../data/reports-api";
 import type {
   ReportTemplate,
@@ -1021,7 +1022,7 @@ export default function ReportBuilderPage() {
 function formatValue(value: unknown, type: string): string {
   if (value == null) return "—";
   if (type === "date" && typeof value === "string") {
-    return new Date(value).toLocaleDateString();
+    return formatDate(value);
   }
   if (type === "number" && typeof value === "number") {
     return value.toLocaleString();

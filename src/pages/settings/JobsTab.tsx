@@ -3,6 +3,7 @@ import { SlCheck } from "react-icons/sl";
 import api from "../../data/api";
 import { getErrorMessage } from "../../utils/apiError";
 import { describeCron, PRESET_LABEL } from "../../utils/cron";
+import { formatDateTime } from "../../utils/formatDate";
 
 const JOB_LABELS: Record<string, { title: string; desc: string }> = {
   "low-stock-alerts": {
@@ -12,6 +13,14 @@ const JOB_LABELS: Record<string, { title: string; desc: string }> = {
   "scheduled-reports": {
     title: "Scheduled reports",
     desc: "Sends recurring summary emails per building based on each building's Report Schedule cadence.",
+  },
+  "notification-evaluation": {
+    title: "Notification evaluation",
+    desc: "Evaluates alert conditions (low stock, overdue work orders) and creates in-app notifications.",
+  },
+  "demo-reset": {
+    title: "Demo data refresh",
+    desc: "Wipes and reseeds the demo building with fresh, time-shifted data. Does nothing until the demo tenant is provisioned (Settings → Demo Tenant).",
   },
 };
 
@@ -121,7 +130,7 @@ export function JobsTab() {
                     </span>
                   </div>
                   <span className="message-time">
-                    Updated {new Date(j.updatedAt).toLocaleString()}
+                    Updated {formatDateTime(j.updatedAt)}
                   </span>
                 </header>
 

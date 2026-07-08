@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { SlCheck } from "react-icons/sl";
 import api from "../../data/api";
 import { getErrorMessage } from "../../utils/apiError";
+import { formatDateTime } from "../../utils/formatDate";
 
 const CADENCE_HELP: Record<string, { pill: string; line: string }> = {
   Off:     { pill: "muted",   line: "No automated reports will be sent." },
@@ -106,7 +107,7 @@ export function ScheduleTab({ buildingId }: { buildingId: number }) {
 
       <div style={{ marginTop: "1.1rem", display: "grid", gap: "0.4rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
         <Row label="Recipients" value={recipientCount == null ? "…" : `${recipientCount} active`} />
-        <Row label="Last sent"  value={lastSentAt ? new Date(lastSentAt).toLocaleString() : "Never"} />
+        <Row label="Last sent"  value={lastSentAt ? formatDateTime(lastSentAt) : "Never"} />
       </div>
 
       {recipientCount === 0 && cadence !== "Off" && (

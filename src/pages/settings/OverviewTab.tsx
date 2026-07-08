@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../../data/api";
 import { getErrorMessage } from "../../utils/apiError";
 import type { Building } from "../../types";
+import { formatDate } from "../../utils/formatDate";
 
 interface OverviewTabProps {
   activeBuilding: Building | null;
@@ -61,7 +62,7 @@ export function OverviewTab({ activeBuilding, setTab, navigate }: OverviewTabPro
           value={schedule?.cadence ?? "Off"}
           desc={
             schedule?.lastSentAt
-              ? `Last sent ${new Date(schedule.lastSentAt).toLocaleDateString()}`
+              ? `Last sent ${formatDate(schedule.lastSentAt)}`
               : "Not sent yet"
           }
           onClick={() => setTab("schedule")}

@@ -6,8 +6,9 @@ import {
   SlCalender,
   SlBell,
 } from "react-icons/sl";
-import { TbLayoutList, TbClockHour4, TbAlertTriangle } from "react-icons/tb";
+import { TbLayoutList, TbClockHour4, TbAlertTriangle, TbClipboardCheck, TbFlask } from "react-icons/tb";
 import PageShell from "../components/PageShell";
+import { useAuth } from "../context/AuthContext";
 import { useBuilding } from "../context/BuildingContext";
 import { SettingsStyles, BuildingRequired } from "./settings/shared";
 import { OverviewTab } from "./settings/OverviewTab";
@@ -17,23 +18,31 @@ import { JobsTab } from "./settings/JobsTab";
 import { MessagesTab } from "./settings/MessagesTab";
 import { AreasTab } from "./settings/AreasTab";
 import { AlertsTab } from "./settings/AlertsTab";
+import { WorkOrdersTab } from "./settings/WorkOrdersTab";
+import { DemoTab } from "./settings/DemoTab";
 
 const TABS = [
   { key: "general",    label: "Overview",         icon: SlInfo,             needsBuilding: false },
   { key: "recipients", label: "Report Recipients", icon: SlEnvolopeLetter,  needsBuilding: true  },
   { key: "schedule",   label: "Report Schedule",   icon: SlCalender,        needsBuilding: true  },
   { key: "alerts",     label: "Alerts",            icon: TbAlertTriangle,   needsBuilding: true  },
+  { key: "workorders", label: "Work Orders",       icon: TbClipboardCheck,  needsBuilding: true  },
   { key: "jobs",       label: "Job Cadence",       icon: TbClockHour4,      needsBuilding: false },
   { key: "messages",   label: "Messages",          icon: SlBell,            needsBuilding: true  },
   { key: "areas",      label: "Areas",             icon: TbLayoutList,      needsBuilding: false },
+  { key: "demo",       label: "Demo Tenant",       icon: TbFlask,           needsBuilding: false, superAdminOnly: true },
 ];
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { activeBuilding } = useBuilding();
   const [tab, setTab] = useState("general");
 
-  const activeTabDef = TABS.find((t) => t.key === tab);
+  const isSuperAdmin = user?.isSuperAdmin || user?.role === "SuperAdmin";
+  const visibleTabs = TABS.filter((t) => !t.superAdminOnly || isSuperAdmin);
+
+  const activeTabDef = visibleTabs.find((t) => t.key === tab);
   const needsBuilding = activeTabDef?.needsBuilding && !activeBuilding;
 
   return (
@@ -50,7 +59,7 @@ export default function SettingsPage() {
         </header>
 
         <div className="settings-tabbar" role="tablist" aria-label="Settings sections">
-          {TABS.map((t) => {
+          {visibleTabs.map((t) => {
             const Icon = t.icon;
             const selected = tab === t.key;
             return (
@@ -83,9 +92,11 @@ export default function SettingsPage() {
           {!needsBuilding && tab === "recipients" && <RecipientsTab buildingId={activeBuilding!.buildingId} />}
           {!needsBuilding && tab === "schedule"   && <ScheduleTab buildingId={activeBuilding!.buildingId} />}
           {!needsBuilding && tab === "alerts"     && <AlertsTab buildingId={activeBuilding!.buildingId} />}
+          {!needsBuilding && tab === "workorders" && <WorkOrdersTab buildingId={activeBuilding!.buildingId} />}
           {!needsBuilding && tab === "jobs"       && <JobsTab />}
           {!needsBuilding && tab === "messages"   && <MessagesTab buildingId={activeBuilding!.buildingId} />}
           {!needsBuilding && tab === "areas"      && <AreasTab activeBuilding={activeBuilding} navigate={navigate} />}
+          {!needsBuilding && tab === "demo" && isSuperAdmin && <DemoTab />}
         </section>
       </div>
     </PageShell>

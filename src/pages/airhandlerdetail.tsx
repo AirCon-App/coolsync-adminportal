@@ -5,6 +5,7 @@ import PageShell from "../components/PageShell";
 import { useUsers } from "../hooks/useUsers";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
+import { formatDate } from "../utils/formatDate";
 
 interface WorkOrder { id: number; completedDate?: string; activityDate?: string; dueDate?: string; count?: number; technicianId?: string; notes?: string; }
 interface AirHandlerDetail { airHandlerGuid: string; name: string; description?: string; areaLabel?: string; filtersName?: string; quantity?: number; scheduleChangeInterval?: string; sku?: string; catalogItemId?: number | null; buildingId: number; workOrders?: WorkOrder[]; }
@@ -14,7 +15,9 @@ interface CatalogItem { catalogItemId: number; name: string; sku?: string; }
 
 function woStatus(wo) {
   const now = new Date();
-  if (wo.completedDate || wo.activityDate) return "completed";
+  // Open-ness is defined by completedDate alone (matches backend + mobile). activityDate is an
+  // admin-edit stamp, not a completion signal — it can land on a still-open order.
+  if (wo.completedDate) return "completed";
   if (!wo.dueDate) return "upcoming";
   const due = new Date(wo.dueDate);
   if (due < now) return "overdue";
@@ -46,7 +49,7 @@ function AgendaView({ workOrders, users }) {
 
   const upcomingOrders = useMemo(() => {
     return workOrders
-      .filter((wo) => !wo.completedDate && !wo.activityDate)
+      .filter((wo) => !wo.completedDate)
       .sort((a, b) => {
         const aDate = a.dueDate ? new Date(a.dueDate) : new Date(9999, 0);
         const bDate = b.dueDate ? new Date(b.dueDate) : new Date(9999, 0);
@@ -64,7 +67,7 @@ function AgendaView({ workOrders, users }) {
     if (diffDays === 0) return "Due today";
     if (diffDays === 1) return "Due tomorrow";
     if (diffDays <= 7) return `Due in ${diffDays} days`;
-    return `Due ${date.toLocaleDateString()}`;
+    return `Due ${formatDate(date)}`;
   };
 
   if (upcomingOrders.length === 0) {
@@ -389,9 +392,9 @@ export default function AirHandlerDetailPage() {
                           </span>
                         </div>
                         <p className="inventory-subtitle">Filters: {wo.count}</p>
-                        {wo.dueDate && <p className="inventory-subtitle">Due: {new Date(wo.dueDate).toLocaleDateString()}</p>}
-                        {(wo.completedDate || wo.activityDate) && (
-                          <p className="inventory-subtitle">Completed: {new Date((wo.activityDate ?? wo.completedDate)!).toLocaleDateString()}</p>
+                        {wo.dueDate && <p className="inventory-subtitle">Due: {formatDate(wo.dueDate)}</p>}
+                        {wo.completedDate && (
+                          <p className="inventory-subtitle">Completed: {formatDate(wo.activityDate ?? wo.completedDate)}</p>
                         )}
                         {wo.technicianId && (
                           <p className="inventory-subtitle">

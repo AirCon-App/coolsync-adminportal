@@ -39,6 +39,9 @@ export default function BuildingSwitcher({ collapsed }: BuildingSwitcherProps) {
         {!collapsed && (
           <>
             <span className="building-switcher-name">{activeBuilding.name}</span>
+            {activeBuilding.isDemo && (
+              <span className="demo-badge" data-testid="demo-badge">DEMO</span>
+            )}
             {buildings.length > 1 && <TbChevronDown className="building-switcher-chevron" />}
           </>
         )}
@@ -61,6 +64,7 @@ export default function BuildingSwitcher({ collapsed }: BuildingSwitcherProps) {
                 <span className="building-switcher-check">✓</span>
               )}
               <span>{b.name}</span>
+              {b.isDemo && <span className="demo-badge">DEMO</span>}
             </button>
           ))}
           {isSuperAdmin && (

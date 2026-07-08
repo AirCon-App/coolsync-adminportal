@@ -14,6 +14,7 @@ const AirHandlersPage = lazy(() => import("./pages/airhandlers"));
 const AirHandlerDetailPage = lazy(() => import("./pages/airhandlerdetail"));
 const ReportingPage = lazy(() => import("./pages/ReportingPage"));
 const BuildingsPage = lazy(() => import("./pages/BuildingsPage"));
+const CatalogPage = lazy(() => import("./pages/CatalogPage"));
 const AreasPage = lazy(() => import("./pages/AreasPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ReportBuilderPage = lazy(() => import("./pages/ReportBuilderPage"));
@@ -44,6 +45,7 @@ function App() {
                 <Route path="/airhandlers/:guid" element={<ProtectedRoute><AirHandlerDetailPage /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute><ReportingPage /></ProtectedRoute>} />
                 <Route path="/buildings" element={<ProtectedRoute requireRole="SuperAdmin"><BuildingsPage /></ProtectedRoute>} />
+                <Route path="/catalog" element={<ProtectedRoute requireRole="SuperAdmin"><CatalogPage /></ProtectedRoute>} />
                 <Route path="/areas" element={<ProtectedRoute><AreasPage /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 <Route path="/report-builder" element={<ProtectedRoute><ReportBuilderPage /></ProtectedRoute>} />

@@ -6,6 +6,7 @@ import { Pagination } from "../components/Pagination";
 import { useBuilding } from "../context/BuildingContext";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
+import { formatDate } from "../utils/formatDate";
 
 const STATUS_OPTIONS = ["Open", "DueSoon", "Overdue", "Completed"];
 
@@ -182,10 +183,10 @@ export default function WorkOrdersPage() {
                         </span>
                       </td>
                       <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
-                        {wo.dueDate ? new Date(wo.dueDate).toLocaleDateString() : "—"}
+                        {wo.dueDate ? formatDate(wo.dueDate) : "—"}
                       </td>
                       <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
-                        {wo.completedDate ? new Date(wo.completedDate).toLocaleDateString() : "—"}
+                        {wo.completedDate ? formatDate(wo.completedDate) : "—"}
                       </td>
                       <td style={{ color: "var(--text-secondary)" }}>
                         {wo.technicianName ?? "Unassigned"}

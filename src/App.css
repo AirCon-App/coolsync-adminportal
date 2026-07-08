@@ -353,6 +353,19 @@ a {
   opacity: 0.6;
 }
 
+/* Demo tenant marker (ADR-015) — a screen-share must never be mistaken for customer data */
+.demo-badge {
+  flex-shrink: 0;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--warning);
+  background: var(--warning-sub);
+  color: var(--warning);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .building-switcher-dropdown {
   position: absolute;
   left: 0.6rem;
@@ -2312,4 +2325,277 @@ textarea:disabled {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ============================================================
+   SuperAdmin portfolio view toggle + Procurement Outlook (ADR-011)
+   ============================================================ */
+
+.dash-header--toggle-only {
+  justify-content: flex-end;
+  border-bottom: none;
+  padding-bottom: 0.75rem;
+}
+
+/* Segmented control — action affordance, so pill-shaped per the design system. */
+.dash-viewtoggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.dash-viewtoggle-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dash-viewtoggle-btn:hover { color: var(--text-primary); }
+
+.dash-viewtoggle-btn.is-active {
+  background: var(--accent-sub);
+  color: var(--accent);
+}
+
+.dash-viewtoggle-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Data container → 0.5rem radius per the design system. */
+.procurement {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.procurement-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.procurement-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.procurement-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0.2rem 0 0;
+}
+
+.procurement-horizon {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.procurement-horizon-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.procurement-horizon-btn:hover { color: var(--text-primary); }
+
+.procurement-horizon-btn.is-active {
+  background: var(--accent-sub);
+  color: var(--accent);
+}
+
+.procurement-horizon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.procurement-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.procurement-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.procurement-stat-val {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.procurement-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.procurement-section {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.procurement-section-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.procurement-section-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.procurement-section-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.procurement-allclear {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 0.5rem;
+  font-size: 0.85rem;
+  color: var(--success);
+}
+
+.procurement-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.procurement-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.6fr 1fr 0.7fr 0.7fr 0.6fr 0.7fr;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.procurement-row:last-child { border-bottom: none; }
+
+.procurement-row--head {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.procurement-building { color: var(--text-primary); font-weight: 500; }
+
+.procurement-units {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+.procurement-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.procurement-short { color: var(--danger); font-weight: 600; }
+
+.procurement-order { color: var(--accent); font-weight: 600; }
+
+.procurement-blindspots {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.procurement-blindspot {
+  display: grid;
+  grid-template-columns: auto 1.4fr 1fr 1.2fr;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.procurement-blindspot:last-child { border-bottom: none; }
+
+.procurement-blindspot-icon { color: var(--warning); flex-shrink: 0; }
+
+.procurement-blindspot-unit { color: var(--text-primary); font-weight: 500; }
+
+.procurement-blindspot-building { color: var(--text-secondary); }
+
+.procurement-blindspot-reason { color: var(--text-muted); text-align: right; }
+
+.procurement-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.procurement-skeleton-row {
+  height: 2.4rem;
+  border-radius: 0.5rem;
+  background: var(--bg-raised);
+  overflow: hidden;
+  position: relative;
+}
+
+.procurement-skeleton-row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--bg-overlay) 50%, transparent 100%);
+  animation: shimmer 1.6s var(--ease-inout) infinite;
+}
+
+@media (max-width: 720px) {
+  .procurement-summary { grid-template-columns: repeat(2, 1fr); }
+  .procurement-row {
+    grid-template-columns: 1fr 1fr 0.7fr 0.7fr;
+  }
+  .procurement-row > span:nth-child(3),
+  .procurement-row > span:nth-child(7) { display: none; }
+  .procurement-blindspot { grid-template-columns: auto 1fr 1fr; }
+  .procurement-blindspot-building { display: none; }
 }

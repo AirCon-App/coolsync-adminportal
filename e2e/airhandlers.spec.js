@@ -27,4 +27,15 @@ test.describe('Air Handlers', () => {
       await expect(page).toHaveURL(/airhandler.*detail|airhandler.*\//i);
     }
   });
+
+  test('should open the assign-area modal from a row', async ({ page }) => {
+    await page.goto('/airhandlers');
+    const editAreaBtn = page.getByRole('button', { name: /edit area/i }).first();
+    if (await editAreaBtn.isVisible().catch(() => false)) {
+      await editAreaBtn.click();
+      await expect(page.getByRole('heading', { name: /assign area/i })).toBeVisible();
+      await expect(page.getByText(/area \/ floor/i)).toBeVisible();
+      await page.getByRole('button', { name: /cancel/i }).click();
+    }
+  });
 });

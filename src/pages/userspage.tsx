@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
 import { invalidateUsersCache } from "../hooks/useUsers";
+import { useApiData } from "../hooks/useApiData";
 import { getErrorMessage } from "../utils/apiError";
 import { useAuth } from "../context/AuthContext";
 import { Pagination } from "../components/Pagination";
@@ -15,44 +16,37 @@ const PAGE_SIZE = 25;
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
-  const [buildings, setBuildings] = useState<AppBuilding[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [passwordUser, setPasswordUser] = useState<AppUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
   const [reassignToId, setReassignToId] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-  const [refreshKey, setRefreshKey] = useState(0);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
 
-  useEffect(() => {
-    let mounted = true;
-    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
-    if (search) params.set("search", search);
-    if (roleFilter !== "all") params.set("role", roleFilter);
-    if (selectedBuildingId !== "all") params.set("buildingId", selectedBuildingId);
-    const t = setTimeout(() => {
-      api.get(`/Auth/users?${params}`).then((res) => {
-        if (!mounted) return;
-        setUsers(res.data.items);
-        setTotalCount(res.data.totalCount);
-      }).catch(() => { if (mounted) { setUsers([]); setTotalCount(0); } });
-    }, 250);
-    return () => { mounted = false; clearTimeout(t); };
-  }, [page, search, roleFilter, selectedBuildingId, refreshKey]);
+  const { data: usersData, reload: fetchUsers } = useApiData<{ items: AppUser[]; totalCount: number }>(
+    () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (search) params.set("search", search);
+      if (roleFilter !== "all") params.set("role", roleFilter);
+      if (selectedBuildingId !== "all") params.set("buildingId", selectedBuildingId);
+      return api.get(`/Auth/users?${params}`).then((res) => res.data);
+    },
+    "Users failed to load.",
+    { key: `${page}|${search}|${roleFilter}|${selectedBuildingId}`, debounceMs: 250 },
+  );
+  const users = usersData?.items ?? [];
+  const totalCount = usersData?.totalCount ?? 0;
 
-  useEffect(() => {
-    let mounted = true;
-    api.get("/Buildings").then((res) => { if (mounted) setBuildings(res.data.items); });
-    return () => { mounted = false; };
-  }, []);
-
-  const fetchUsers = () => setRefreshKey((k) => k + 1);
+  const buildingsData = useApiData<{ items: AppBuilding[] }>(
+    () => api.get("/Buildings").then((res) => res.data),
+    "Buildings failed to load.",
+  );
+  const buildings = buildingsData.data?.items ?? [];
 
   const handleAdd = async (form) => {
     // Register takes a single buildingId for the legacy field; sync the rest after
@@ -227,6 +221,13 @@ export default function UsersPage() {
                           Edit
                         </button>
                         <button
+                          className="user-action-btn"
+                          onClick={(e) => { e.stopPropagation(); setPasswordUser(user); }}
+                          data-testid={`set-password-${user.id}`}
+                        >
+                          Password
+                        </button>
+                        <button
                           className="user-action-btn user-action-btn--danger"
                           onClick={(e) => { e.stopPropagation(); handleOpenDelete(user); }}
                           disabled={user.id === currentUser?.id}
@@ -263,6 +264,13 @@ export default function UsersPage() {
           buildings={buildings}
           onSave={handleEdit}
           onClose={() => setEditingUser(null)}
+        />
+      )}
+
+      {passwordUser && (
+        <SetPasswordModal
+          user={passwordUser}
+          onClose={() => setPasswordUser(null)}
         />
       )}
 
@@ -323,6 +331,148 @@ export default function UsersPage() {
         </div>
       )}
     </PageShell>
+  );
+}
+
+function SetPasswordModal({ user, onClose }: { user: AppUser; onClose: () => void }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [temporary, setTemporary] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (newPassword !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.put(`/Auth/users/${user.id}/password`, { newPassword, temporary });
+      setDone(true);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="inventory-modal-backdrop" onClick={onClose}>
+      <div
+        className="inventory-modal-card"
+        style={{ maxWidth: 420 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2>Set password</h2>
+        {done ? (
+          <>
+            <p>
+              Password updated for{" "}
+              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                {user.fullName || user.email}
+              </span>
+              .{" "}
+              {temporary
+                ? "They will be required to choose a new password the next time they sign in."
+                : "They can sign in with it immediately."}
+            </p>
+            <div className="inventory-modal-actions">
+              <button className="button" onClick={onClose} data-testid="set-password-done">
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+              Set a new password for{" "}
+              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                {user.fullName || user.email}
+              </span>
+              .
+            </p>
+            <div>
+              <label className="user-form-label">New password</label>
+              <input
+                className="inventory-modal-input"
+                style={{ marginBottom: 0 }}
+                type="password"
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                autoFocus
+                data-testid="set-password-input"
+              />
+            </div>
+            <div>
+              <label className="user-form-label">Confirm password</label>
+              <input
+                className="inventory-modal-input"
+                style={{ marginBottom: 0 }}
+                type="password"
+                placeholder="••••••••"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                data-testid="set-password-confirm"
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
+                <input
+                  type="radio"
+                  name="password-mode"
+                  checked={temporary}
+                  onChange={() => setTemporary(true)}
+                  style={{ marginTop: "0.2rem" }}
+                />
+                <span>
+                  <strong>Temporary</strong>
+                  <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.8rem" }}>
+                    User must choose a new password at next sign-in
+                  </span>
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
+                <input
+                  type="radio"
+                  name="password-mode"
+                  checked={!temporary}
+                  onChange={() => setTemporary(false)}
+                  style={{ marginTop: "0.2rem" }}
+                />
+                <span>
+                  <strong>Permanent</strong>
+                  <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.8rem" }}>
+                    User keeps this password until they change it themselves
+                  </span>
+                </span>
+              </label>
+            </div>
+            {error && (
+              <div className="alert alert--danger alert--inline">
+                {error}
+              </div>
+            )}
+            <div className="inventory-modal-actions" style={{ marginTop: "0.5rem" }}>
+              <button type="button" className="button inventory-modal-cancel" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="button" disabled={saving} data-testid="set-password-save">
+                {saving ? "Saving…" : "Set Password"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
   );
 }
 

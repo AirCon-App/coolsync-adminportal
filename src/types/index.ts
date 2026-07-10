@@ -26,7 +26,9 @@ export interface ReportRecipient {
 }
 
 // Cross-building procurement outlook (ADR-011) — SuperAdmin "due soon + short on stock" rollup.
-export interface ProcurementAtRiskLine {
+export type ProcurementUrgency = "OrderNow" | "Watch" | "Stocked";
+
+export interface ProcurementLine {
   buildingId: number;
   buildingName: string;
   catalogItemId: number;
@@ -37,6 +39,8 @@ export interface ProcurementAtRiskLine {
   shortfall: number;
   recommendedOrderQty: number;
   nextDueDate: string | null;
+  daysUntilDue: number | null;
+  urgency: ProcurementUrgency;
   scheduledUnits: string[];
 }
 
@@ -53,13 +57,17 @@ export interface ProcurementSummary {
   atRiskCount: number;
   totalShortfall: number;
   notScheduledCount: number;
+  orderNowCount: number;
+  watchCount: number;
+  coveredCount: number;
   risk: string;
 }
 
 export interface ProcurementOutlook {
   horizonDays: number;
   summary: ProcurementSummary;
-  atRiskLines: ProcurementAtRiskLine[];
+  atRiskLines: ProcurementLine[];
+  coveredLines: ProcurementLine[];
   notScheduled: ProcurementBlindSpot[];
 }
 

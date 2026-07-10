@@ -5,7 +5,8 @@ import Sidebar from "./sidebar";
 import NotificationBell from "./NotificationBell";
 import { useBuilding } from "../context/BuildingContext";
 
-const GLOBAL_PAGES = ["/buildings", "/users"];
+// Cross-building pages where the "Viewing: <building>" context bar would mislead.
+const GLOBAL_PAGES = ["/buildings", "/users", "/portfolio"];
 
 interface PageShellProps {
   children: ReactNode;

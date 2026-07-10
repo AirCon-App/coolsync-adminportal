@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
 import type { Building } from "../types";
 import { getErrorMessage } from "../utils/apiError";
 import { Pagination } from "../components/Pagination";
+import { useApiData } from "../hooks/useApiData";
 
 const PAGE_SIZE = 25;
 
 export default function BuildingsPage() {
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -17,38 +16,28 @@ export default function BuildingsPage() {
   const [deletingBuilding, setDeletingBuilding] = useState<Building | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
-    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
-    if (search) params.set("search", search);
-    const t = setTimeout(() => {
-      api.get(`/Buildings?${params}`).then((res) => {
-        if (!mounted) return;
-        setBuildings(res.data.items);
-        setTotalCount(res.data.totalCount);
-      }).catch(() => { if (mounted) { setBuildings([]); setTotalCount(0); } });
-    }, 250);
-    return () => { mounted = false; clearTimeout(t); };
-  }, [page, search]);
-
-  const refreshPage = async () => {
-    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
-    if (search) params.set("search", search);
-    const res = await api.get(`/Buildings?${params}`);
-    setBuildings(res.data.items);
-    setTotalCount(res.data.totalCount);
-  };
+  const { data, reload } = useApiData<{ items: Building[]; totalCount: number }>(
+    () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (search) params.set("search", search);
+      return api.get(`/Buildings?${params}`).then((res) => res.data);
+    },
+    "Buildings failed to load.",
+    { key: `${page}|${search}`, debounceMs: 250 },
+  );
+  const buildings = data?.items ?? [];
+  const totalCount = data?.totalCount ?? 0;
 
   const handleAdd = async (form) => {
     await api.post<Building>("/Buildings", form);
-    await refreshPage();
+    await reload();
     setShowAddModal(false);
   };
 
   const handleEdit = async (form) => {
     if (!editingBuilding) return;
     await api.put(`/Buildings/${editingBuilding.buildingId}`, form);
-    await refreshPage();
+    await reload();
     setEditingBuilding(null);
   };
 
@@ -57,7 +46,7 @@ export default function BuildingsPage() {
     setDeleteError(null);
     try {
       await api.delete(`/Buildings/${deletingBuilding.buildingId}`);
-      await refreshPage();
+      await reload();
       setDeletingBuilding(null);
     } catch (err) {
       setDeleteError(getErrorMessage(err));

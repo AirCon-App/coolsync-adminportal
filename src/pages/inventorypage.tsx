@@ -3,6 +3,7 @@ import PageShell from "../components/PageShell";
 import api from "../data/api";
 import { getErrorMessage } from "../utils/apiError";
 import { useBuilding } from "../context/BuildingContext";
+import { useApiData } from "../hooks/useApiData";
 import { Pagination } from "../components/Pagination";
 import AddInventoryItemModal from "../components/AddInventoryItemModal";
 import EditInventoryItemModal from "../components/EditInventoryItemModal";
@@ -31,10 +32,7 @@ function StockBadge({ status }: { status?: StockStatus }) {
 const PAGE_SIZE = 25;
 
 export default function InventoryPage() {
-  const [data, setData] = useState<InventoryItem[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [search, setSearch] = useState("");
   const [stockFilter, setStockFilter] = useState("all");
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -55,24 +53,23 @@ export default function InventoryPage() {
 
   useEffect(() => { setPage(1); }, [activeBuilding]);
 
-  useEffect(() => {
-    if (!activeBuilding) return;
-    let mounted = true;
-    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
-    params.set("buildingId", String(activeBuilding.buildingId));
-    if (search) params.set("search", search);
-    if (stockFilter !== "all") params.set("stockStatus", stockFilter);
-    const t = setTimeout(() => {
-      api.get(`/Inventory?${params}`).then((res) => {
-        if (!mounted) return;
-        setData(res.data.items);
-        setTotalCount(res.data.totalCount);
-      }).catch(() => { if (mounted) { setData([]); setTotalCount(0); } });
-    }, 250);
-    return () => { mounted = false; clearTimeout(t); };
-  }, [activeBuilding, page, search, stockFilter, refreshKey]);
-
-  const refresh = () => setRefreshKey((k) => k + 1);
+  const { data: pageData, reload: refresh } = useApiData<{ items: InventoryItem[]; totalCount: number }>(
+    () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      params.set("buildingId", String(activeBuilding!.buildingId));
+      if (search) params.set("search", search);
+      if (stockFilter !== "all") params.set("stockStatus", stockFilter);
+      return api.get(`/Inventory?${params}`).then((res) => res.data);
+    },
+    "Inventory failed to load.",
+    {
+      key: `${activeBuilding?.buildingId}|${page}|${search}|${stockFilter}`,
+      debounceMs: 250,
+      enabled: !!activeBuilding,
+    },
+  );
+  const data = pageData?.items ?? [];
+  const totalCount = pageData?.totalCount ?? 0;
 
   const handleDownloadTemplate = async () => {
     if (!activeBuilding) return;

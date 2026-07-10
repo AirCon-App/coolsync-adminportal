@@ -5,6 +5,7 @@ import { getErrorMessage } from "../utils/apiError";
 import { useBuilding } from "../context/BuildingContext";
 import { Pagination } from "../components/Pagination";
 import AssignHandlersModal from "../components/AssignHandlersModal";
+import { useApiData } from "../hooks/useApiData";
 
 interface Area { id: number; name: string; sortOrder: number; }
 interface AreaHandler { id: number; airHandlerGuid: string; name: string; areaId?: number | null; areaLabel?: string | null; }
@@ -13,16 +14,12 @@ const PAGE_SIZE = 25;
 
 export default function AreasPage() {
   const { activeBuilding } = useBuilding();
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [allAreas, setAllAreas] = useState<Area[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingArea, setEditingArea] = useState<Area | null>(null);
   const [deletingArea, setDeletingArea] = useState<Area | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [handlers, setHandlers] = useState<AreaHandler[]>([]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [assignToArea, setAssignToArea] = useState<Area | null>(null);
@@ -32,25 +29,21 @@ export default function AreasPage() {
 
   useEffect(() => { setPage(1); setExpanded(new Set()); setSelected(new Set()); }, [activeBuilding]);
 
-  // Load all air handlers for this building once, grouped client-side by area.
-  useEffect(() => {
-    if (!activeBuilding) { setHandlers([]); return; }
-    let mounted = true;
-    api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`).then((res) => {
-      if (mounted) setHandlers(res.data.items);
-    }).catch(() => { if (mounted) setHandlers([]); });
-    return () => { mounted = false; };
-  }, [activeBuilding]);
+  // All air handlers for this building, grouped client-side by area.
+  const handlersData = useApiData<{ items: AreaHandler[] }>(
+    () => api.get(`/AirHandlers?buildingId=${activeBuilding!.buildingId}`).then((res) => res.data),
+    "Air handlers failed to load.",
+    { key: activeBuilding?.buildingId ?? null, enabled: !!activeBuilding },
+  );
+  const handlers = useMemo(() => handlersData.data?.items ?? [], [handlersData.data]);
 
-  // Load the complete area list (no paging) for destination dropdowns.
-  useEffect(() => {
-    if (!activeBuilding) { setAllAreas([]); return; }
-    let mounted = true;
-    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((res) => {
-      if (mounted) setAllAreas(res.data.items);
-    }).catch(() => { if (mounted) setAllAreas([]); });
-    return () => { mounted = false; };
-  }, [activeBuilding]);
+  // The complete area list (no paging) for destination dropdowns.
+  const allAreasData = useApiData<{ items: Area[] }>(
+    () => api.get(`/BuildingAreas?buildingId=${activeBuilding!.buildingId}`).then((res) => res.data),
+    "Areas failed to load.",
+    { key: activeBuilding?.buildingId ?? null, enabled: !!activeBuilding },
+  );
+  const allAreas = allAreasData.data?.items ?? [];
 
   // Group handlers by areaId now that the backend returns it.
   const handlersByArea = useMemo(() => {
@@ -83,43 +76,31 @@ export default function AreasPage() {
       return next;
     });
 
-  useEffect(() => {
-    if (!activeBuilding) return;
-    let mounted = true;
-    const params = new URLSearchParams({
-      buildingId: String(activeBuilding.buildingId),
-      page: String(page),
-      pageSize: String(PAGE_SIZE),
-    });
-    if (search) params.set("search", search);
-    const t = setTimeout(() => {
-      api.get(`/BuildingAreas?${params}`).then((res) => {
-        if (!mounted) return;
-        setAreas(res.data.items);
-        setTotalCount(res.data.totalCount);
-      }).catch(() => { if (mounted) { setAreas([]); setTotalCount(0); } });
-    }, 250);
-    return () => { mounted = false; clearTimeout(t); };
-  }, [activeBuilding, page, search]);
+  // Paged area list for the table.
+  const areasData = useApiData<{ items: Area[]; totalCount: number }>(
+    () => {
+      const params = new URLSearchParams({
+        buildingId: String(activeBuilding!.buildingId),
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (search) params.set("search", search);
+      return api.get(`/BuildingAreas?${params}`).then((res) => res.data);
+    },
+    "Areas failed to load.",
+    {
+      key: `${activeBuilding?.buildingId}|${page}|${search}`,
+      debounceMs: 250,
+      enabled: !!activeBuilding,
+    },
+  );
+  const areas = areasData.data?.items ?? [];
+  const totalCount = areasData.data?.totalCount ?? 0;
 
   const refresh = async () => {
     if (!activeBuilding) return;
     setSelected(new Set());
-    const params = new URLSearchParams({
-      buildingId: String(activeBuilding.buildingId),
-      page: String(page),
-      pageSize: String(PAGE_SIZE),
-    });
-    if (search) params.set("search", search);
-    const [areasRes, allAreasRes, handlersRes] = await Promise.all([
-      api.get(`/BuildingAreas?${params}`),
-      api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`),
-      api.get(`/AirHandlers?buildingId=${activeBuilding.buildingId}`),
-    ]);
-    setAreas(areasRes.data.items);
-    setTotalCount(areasRes.data.totalCount);
-    setAllAreas(allAreasRes.data.items);
-    setHandlers(handlersRes.data.items);
+    await Promise.all([areasData.reload(), allAreasData.reload(), handlersData.reload()]);
   };
 
   const bulkAssign = async (handlerIds: number[], areaId: number | null) => {

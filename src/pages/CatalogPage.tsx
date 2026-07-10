@@ -1,36 +1,30 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
 import type { CatalogItem } from "../types/inventory";
 import { getErrorMessage } from "../utils/apiError";
+import { useApiData } from "../hooks/useApiData";
 
 export default function CatalogPage() {
-  const [items, setItems] = useState<CatalogItem[]>([]);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<CatalogItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // "Show archived" is a server-side concern (includeArchived param) — toggling it refetches.
-  const fetchItems = useCallback(async () => {
-    setLoadError(null);
-    const params = new URLSearchParams();
-    if (showArchived) params.set("includeArchived", "true");
-    const qs = params.toString();
-    const res = await api.get<CatalogItem[]>(`/ItemCatalog${qs ? `?${qs}` : ""}`);
-    setItems(res.data);
-  }, [showArchived]);
-
-  useEffect(() => {
-    let mounted = true;
-    fetchItems().catch((err) => {
-      if (mounted) { setItems([]); setLoadError(getErrorMessage(err)); }
-    });
-    return () => { mounted = false; };
-  }, [fetchItems]);
+  const { data, error: loadError, reload: fetchItems } = useApiData<CatalogItem[]>(
+    () => {
+      const params = new URLSearchParams();
+      if (showArchived) params.set("includeArchived", "true");
+      const qs = params.toString();
+      return api.get<CatalogItem[]>(`/ItemCatalog${qs ? `?${qs}` : ""}`).then((res) => res.data);
+    },
+    (err) => getErrorMessage(err),
+    { key: showArchived },
+  );
+  const items = useMemo(() => data ?? [], [data]);
 
   // Search filters the already-loaded array in memory (the contract has no search param).
   const filtered = useMemo(() => {

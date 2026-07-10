@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
+import { useApiData } from "../hooks/useApiData";
 import { SlPrinter } from "react-icons/sl";
 import { MdOutlineEmail } from "react-icons/md";
 import TimeFrameSelector from "../components/TimeFrameSelector";
@@ -160,14 +161,31 @@ function lowStockCountOf(report: BuiltInReport | null): number {
 export default function ReportingPage() {
   const { activeBuilding } = useBuilding();
 
-  const [filterReport, setFilterReport] = useState<BuiltInReport | null>(null);
-  const [inventoryReport, setInventoryReport] = useState<BuiltInReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Time-frame state — default 1 month back to today
   const [dateFrom, setDateFrom] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d; });
   const [dateTo, setDateTo] = useState(() => new Date());
+
+  // Both server-computed reports refetch when the building or date range changes.
+  const { data: reports, loading, error } = useApiData<{
+    filter: BuiltInReport;
+    inventory: BuiltInReport;
+  }>(
+    async () => {
+      const params = { buildingId: activeBuilding!.buildingId, from: dateFrom.toISOString(), to: dateTo.toISOString() };
+      const [f, i] = await Promise.all([
+        api.get<BuiltInReport>("/reports/built-in/filter", { params }),
+        api.get<BuiltInReport>("/reports/built-in/inventory", { params }),
+      ]);
+      return { filter: f.data, inventory: i.data };
+    },
+    (err) => "Failed to load report data. " + ((err as Error)?.message ?? ""),
+    {
+      key: `${activeBuilding?.buildingId}|${dateFrom.toISOString()}|${dateTo.toISOString()}`,
+      enabled: !!activeBuilding,
+    },
+  );
+  const filterReport = reports?.filter ?? null;
+  const inventoryReport = reports?.inventory ?? null;
 
   // Email modal state
   const [emailModal, setEmailModal] = useState<{ label: string; reportType: ReportType } | null>(null);
@@ -180,29 +198,6 @@ export default function ReportingPage() {
     setDateFrom(f);
     setDateTo(t);
   }
-
-  // Fetch both server-computed reports when the building or date range changes.
-  useEffect(() => {
-    if (!activeBuilding) { setLoading(false); return; }
-    let mounted = true;
-    const params = { buildingId: activeBuilding.buildingId, from: dateFrom.toISOString(), to: dateTo.toISOString() };
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      api.get<BuiltInReport>("/reports/built-in/filter", { params }),
-      api.get<BuiltInReport>("/reports/built-in/inventory", { params }),
-    ])
-      .then(([f, i]) => {
-        if (!mounted) return;
-        setFilterReport(f.data);
-        setInventoryReport(i.data);
-      })
-      .catch((err) => {
-        if (mounted) setError("Failed to load report data. " + (err?.message ?? ""));
-      })
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
-  }, [activeBuilding, dateFrom, dateTo]);
 
   // ─── PDF export ──────────────────────────────────────────────────────────
   // The PDF is rendered server-side (QuestPDF) — the same renderer the mobile

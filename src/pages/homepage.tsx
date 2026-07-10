@@ -1,11 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useMemo } from "react";
 import PageShell from "../components/PageShell";
 import { Link } from "react-router-dom";
 import { TbAlertTriangle, TbCircleCheck, TbArrowRight } from "react-icons/tb";
 import api from "../data/api";
 import { useBuilding } from "../context/BuildingContext";
-import { useAuth } from "../context/AuthContext";
-import ProcurementOutlook from "../components/ProcurementOutlook";
+import { useApiData } from "../hooks/useApiData";
 
 interface WorkOrder {
   handler: string;
@@ -51,42 +50,31 @@ function complianceColor(pct: number | null): string | undefined {
 
 export default function HomePage() {
   const { activeBuilding } = useBuilding();
-  const { user } = useAuth();
-  const isSuperAdmin = !!(user?.isSuperAdmin || user?.role === "SuperAdmin");
-  const [view, setView] = useState<"building" | "portfolio">("building");
-  const [airHandlers, setAirHandlers] = useState<AirHandler[]>([]);
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!activeBuilding) return;
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      setFetchError(null);
-      try {
-        const bid = activeBuilding.buildingId;
-        const [ahRes, woRes, invRes] = await Promise.all([
-          api.get(`/AirHandlers?buildingId=${bid}`),
-          api.get(`/WorkOrders?buildingId=${bid}`),
-          api.get(`/Inventory?buildingId=${bid}`),
-        ]);
-        if (mounted) {
-          setAirHandlers(ahRes.data.items ?? []);
-          setWorkOrders(woRes.data ?? []);
-          setInventory(invRes.data.items ?? []);
-        }
-      } catch {
-        if (mounted) setFetchError("Dashboard data failed to load. Check your connection and try refreshing.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => { mounted = false; };
-  }, [activeBuilding]);
+  const { data: dash, loading, error: fetchError } = useApiData<{
+    airHandlers: AirHandler[];
+    workOrders: WorkOrder[];
+    inventory: InventoryItem[];
+  }>(
+    async () => {
+      const bid = activeBuilding!.buildingId;
+      const [ahRes, woRes, invRes] = await Promise.all([
+        api.get(`/AirHandlers?buildingId=${bid}`),
+        api.get(`/WorkOrders?buildingId=${bid}`),
+        api.get(`/Inventory?buildingId=${bid}`),
+      ]);
+      return {
+        airHandlers: ahRes.data.items ?? [],
+        workOrders: woRes.data ?? [],
+        inventory: invRes.data.items ?? [],
+      };
+    },
+    "Dashboard data failed to load. Check your connection and try refreshing.",
+    { key: activeBuilding?.buildingId ?? null, enabled: !!activeBuilding },
+  );
+  const airHandlers = useMemo(() => dash?.airHandlers ?? [], [dash]);
+  const workOrders = useMemo(() => dash?.workOrders ?? [], [dash]);
+  const inventory = useMemo(() => dash?.inventory ?? [], [dash]);
 
   const handlerMap = useMemo(() => {
     const m: Record<string, AirHandler> = {};
@@ -209,55 +197,9 @@ export default function HomePage() {
     weekday: "long", month: "long", day: "numeric",
   });
 
-  const portfolioToggle = isSuperAdmin ? (
-    <div className="dash-viewtoggle" role="tablist" aria-label="Dashboard scope">
-      <button
-        type="button"
-        role="tab"
-        data-testid="dash-view-building"
-        aria-selected={view === "building"}
-        className={`dash-viewtoggle-btn${view === "building" ? " is-active" : ""}`}
-        onClick={() => setView("building")}
-      >
-        This building
-      </button>
-      <button
-        type="button"
-        role="tab"
-        data-testid="dash-view-portfolio"
-        aria-selected={view === "portfolio"}
-        className={`dash-viewtoggle-btn${view === "portfolio" ? " is-active" : ""}`}
-        onClick={() => setView("portfolio")}
-      >
-        All buildings
-      </button>
-    </div>
-  ) : null;
-
-  // SuperAdmin portfolio (cross-building) view — independent of the active building.
-  if (isSuperAdmin && view === "portfolio") {
-    return (
-      <PageShell>
-        <div className="dash">
-          <div className="dash-header">
-            <div>
-              <h1 className="dash-building">Portfolio Outlook</h1>
-              <p className="dash-date">{today}</p>
-            </div>
-            {portfolioToggle}
-          </div>
-          <ProcurementOutlook />
-        </div>
-      </PageShell>
-    );
-  }
-
   if (!activeBuilding) {
     return (
       <PageShell>
-        {portfolioToggle && (
-          <div className="dash-header dash-header--toggle-only">{portfolioToggle}</div>
-        )}
         <div className="dash-empty-state">
           <p className="dash-empty-label">Select a building from the sidebar to view your dashboard.</p>
         </div>
@@ -274,7 +216,6 @@ export default function HomePage() {
             <h1 className="dash-building">{activeBuilding.name}</h1>
             <p className="dash-date">{today}</p>
           </div>
-          {portfolioToggle}
         </div>
 
         {fetchError && (

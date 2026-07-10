@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import api from "../../data/api";
+import { useApiData } from "../../hooks/useApiData";
 import { getErrorMessage } from "../../utils/apiError";
 import type { Building } from "../../types";
 import { formatDate } from "../../utils/formatDate";
@@ -11,22 +12,31 @@ interface OverviewTabProps {
 }
 
 export function OverviewTab({ activeBuilding, setTab, navigate }: OverviewTabProps) {
-  const [recipients, setRecipients] = useState<any[] | null>(null);
-  const [schedule, setSchedule] = useState<any>(null);
-  const [openMessages, setOpenMessages] = useState<any[] | null>(null);
-  const [areas, setAreas] = useState<any[] | null>(null);
-  const [jobs, setJobs] = useState<any[] | null>(null);
+  // Five independent lookups (not one Promise.all) so a single failure
+  // doesn't blank the other overview cards — matches the prior behavior.
+  const bid = activeBuilding?.buildingId ?? null;
+  const enabled = !!activeBuilding;
 
-  useEffect(() => {
-    if (!activeBuilding) return;
-    let mounted = true;
-    api.get(`/ReportRecipients?buildingId=${activeBuilding.buildingId}`).then((r) => { if (mounted) setRecipients(r.data); });
-    api.get(`/scheduledreportconfigs?buildingId=${activeBuilding.buildingId}`).then((r) => { if (mounted) setSchedule(r.data); });
-    api.get(`/technicianmessages?buildingId=${activeBuilding.buildingId}&status=Open`).then((r) => { if (mounted) setOpenMessages(r.data); });
-    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((r) => { if (mounted) setAreas(r.data.items); });
-    api.get(`/recurringjobs`).then((r) => { if (mounted) setJobs(r.data); });
-    return () => { mounted = false; };
-  }, [activeBuilding]);
+  const { data: recipients } = useApiData<any[]>(
+    () => api.get(`/ReportRecipients?buildingId=${activeBuilding!.buildingId}`).then((r) => r.data),
+    "Recipients failed to load.", { key: bid, enabled },
+  );
+  const { data: schedule } = useApiData<any>(
+    () => api.get(`/scheduledreportconfigs?buildingId=${activeBuilding!.buildingId}`).then((r) => r.data),
+    "Schedule failed to load.", { key: bid, enabled },
+  );
+  const { data: openMessages } = useApiData<any[]>(
+    () => api.get(`/technicianmessages?buildingId=${activeBuilding!.buildingId}&status=Open`).then((r) => r.data),
+    "Messages failed to load.", { key: bid, enabled },
+  );
+  const { data: areas } = useApiData<any[]>(
+    () => api.get(`/BuildingAreas?buildingId=${activeBuilding!.buildingId}`).then((r) => r.data.items),
+    "Areas failed to load.", { key: bid, enabled },
+  );
+  const { data: jobs } = useApiData<any[]>(
+    () => api.get(`/recurringjobs`).then((r) => r.data),
+    "Jobs failed to load.", { key: bid, enabled },
+  );
 
   const activeRecipients = (recipients ?? []).filter((r) => r.isActive).length;
   const totalRecipients  = (recipients ?? []).length;

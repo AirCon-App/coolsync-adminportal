@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
 import api from "../../data/api";
+import { useApiData } from "../../hooks/useApiData";
 import type { Building } from "../../types";
 
 interface AreasTabProps {
@@ -8,14 +8,12 @@ interface AreasTabProps {
 }
 
 export function AreasTab({ activeBuilding, navigate }: AreasTabProps) {
-  const [areas, setAreas] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!activeBuilding) return;
-    let mounted = true;
-    api.get(`/BuildingAreas?buildingId=${activeBuilding.buildingId}`).then((r) => { if (mounted) setAreas(r.data.items); });
-    return () => { mounted = false; };
-  }, [activeBuilding]);
+  const { data } = useApiData<{ items: { id: number; name: string }[] }>(
+    () => api.get(`/BuildingAreas?buildingId=${activeBuilding!.buildingId}`).then((r) => r.data),
+    "Areas failed to load.",
+    { key: activeBuilding?.buildingId ?? null, enabled: !!activeBuilding },
+  );
+  const areas = data?.items ?? [];
 
   return (
     <div className="settings-card">

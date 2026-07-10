@@ -7,7 +7,10 @@ import { BuildingProvider } from "./context/BuildingContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const LoginPage = lazy(() => import("./pages/loginpage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const HomePage = lazy(() => import("./pages/homepage"));
+const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const InventoryPage = lazy(() => import("./pages/inventorypage"));
 const UsersPage = lazy(() => import("./pages/userspage"));
 const AirHandlersPage = lazy(() => import("./pages/airhandlers"));
@@ -38,7 +41,10 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<LoginPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/portfolio" element={<ProtectedRoute requireRole="SuperAdmin"><PortfolioPage /></ProtectedRoute>} />
                 <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
                 <Route path="/users" element={<ProtectedRoute requireRole="SuperAdmin"><UsersPage /></ProtectedRoute>} />
                 <Route path="/airhandlers" element={<ProtectedRoute><AirHandlersPage /></ProtectedRoute>} />

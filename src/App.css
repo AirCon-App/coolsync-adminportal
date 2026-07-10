@@ -223,6 +223,44 @@ a {
   color: var(--text-muted);
 }
 
+.auth-error {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.85rem;
+  font-size: var(--font-sm);
+  color: var(--danger);
+  background: var(--danger-sub);
+  border-left: 3px solid var(--danger);
+  border-radius: 0.5rem;
+}
+
+.auth-success {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.85rem;
+  font-size: var(--font-body);
+  color: var(--success);
+  background: var(--success-sub);
+  border-left: 3px solid var(--success);
+  border-radius: 0.5rem;
+}
+
+.auth-link {
+  margin-top: 1rem;
+  align-self: center;
+  font-size: var(--font-sm);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+
 /* ============================================================
    Sidebar & Layout
    ============================================================ */
@@ -1896,6 +1934,41 @@ textarea:disabled {
   color: var(--text-muted);
 }
 
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.5rem;
+}
+
+.pagination-size-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin-right: 0.2rem;
+}
+
+.pagination-size-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  font-size: var(--font-sm);
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
+}
+
+.pagination-size-btn:hover:not(.is-active) {
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.pagination-size-btn.is-active {
+  background: var(--accent);
+  color: var(--bg-base);
+  border-color: var(--accent);
+}
+
 /* ============================================================
    Dashboard v2 (reimagined)
    ============================================================ */
@@ -2308,6 +2381,8 @@ textarea:disabled {
 
 @media (pointer: coarse) {
   .pagination-btn           { min-height: 44px; }
+  .pagination-size-btn      { min-height: 44px; }
+  .procurement-buildingbar-back { min-height: 44px; }
   .user-action-btn          { min-height: 44px; padding-left: 1.1rem; padding-right: 1.1rem; }
   .building-switcher-btn    { min-height: 44px; }
   .building-switcher-option { min-height: 44px; }
@@ -2328,49 +2403,8 @@ textarea:disabled {
 }
 
 /* ============================================================
-   SuperAdmin portfolio view toggle + Procurement Outlook (ADR-011)
+   Procurement Outlook — SuperAdmin portfolio page (ADR-011)
    ============================================================ */
-
-.dash-header--toggle-only {
-  justify-content: flex-end;
-  border-bottom: none;
-  padding-bottom: 0.75rem;
-}
-
-/* Segmented control — action affordance, so pill-shaped per the design system. */
-.dash-viewtoggle {
-  display: inline-flex;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-
-.dash-viewtoggle-btn {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.dash-viewtoggle-btn:hover { color: var(--text-primary); }
-
-.dash-viewtoggle-btn.is-active {
-  background: var(--accent-sub);
-  color: var(--accent);
-}
-
-.dash-viewtoggle-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 
 /* Data container → 0.5rem radius per the design system. */
 .procurement {
@@ -2401,67 +2435,294 @@ textarea:disabled {
   margin: 0.2rem 0 0;
 }
 
-.procurement-horizon {
-  display: inline-flex;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  background: var(--bg-subtle);
+/* One-sentence verdict a non-specialist reads before the table. */
+.procurement-verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1.1rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
-}
-
-.procurement-horizon-btn {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.76rem;
+  border-radius: 0.5rem;
+  font-size: 0.92rem;
   font-weight: 500;
-  padding: 0.35rem 0.8rem;
-  border-radius: 999px;
+  color: var(--text-primary);
+}
+
+.procurement-verdict svg { flex-shrink: 0; }
+
+.procurement-verdict--danger  { background: var(--danger-sub); }
+.procurement-verdict--danger svg  { color: var(--danger); }
+.procurement-verdict--warning { background: var(--warning-sub); }
+.procurement-verdict--warning svg { color: var(--warning); }
+.procurement-verdict--ok      { background: var(--success-sub); }
+.procurement-verdict--ok svg      { color: var(--success); }
+
+/* Triage cards: loud, mockup-style alert boxes that double as the table's status filter. */
+.procurement-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.9rem;
+}
+
+.procurement-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 0;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 0.5rem;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
 }
 
-.procurement-horizon-btn:hover { color: var(--text-primary); }
+.procurement-card:hover { box-shadow: 0 2px 10px oklch(0 0 0 / 0.08); }
 
-.procurement-horizon-btn.is-active {
-  background: var(--accent-sub);
-  color: var(--accent);
-}
-
-.procurement-horizon-btn:focus-visible {
+.procurement-card:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.procurement-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+.procurement-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 0.75rem;
+  padding: 0.95rem 1.1rem 0.85rem;
 }
 
-.procurement-stat {
+.procurement-card-main {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.9rem 1rem;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.procurement-card-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.procurement-card-numrow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.procurement-card-count {
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.procurement-card-desc {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.procurement-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.procurement-card-link {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 1.1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.procurement-card--danger { border-left-color: var(--danger); }
+.procurement-card--danger .procurement-card-label,
+.procurement-card--danger .procurement-card-count,
+.procurement-card--danger .procurement-card-link { color: var(--danger); }
+.procurement-card--danger .procurement-card-icon { background: var(--danger-sub); color: var(--danger); }
+.procurement-card--danger:hover,
+.procurement-card--danger.is-active { background: var(--danger-sub); border-color: var(--danger); }
+
+.procurement-card--warning { border-left-color: var(--warning); }
+.procurement-card--warning .procurement-card-label,
+.procurement-card--warning .procurement-card-count,
+.procurement-card--warning .procurement-card-link { color: var(--warning); }
+.procurement-card--warning .procurement-card-icon { background: var(--warning-sub); color: var(--warning); }
+.procurement-card--warning:hover,
+.procurement-card--warning.is-active { background: var(--warning-sub); border-color: var(--warning); }
+
+.procurement-card--success { border-left-color: var(--success); }
+.procurement-card--success .procurement-card-label,
+.procurement-card--success .procurement-card-count,
+.procurement-card--success .procurement-card-link { color: var(--success); }
+.procurement-card--success .procurement-card-icon { background: var(--success-sub); color: var(--success); }
+.procurement-card--success:hover,
+.procurement-card--success.is-active { background: var(--success-sub); border-color: var(--success); }
+
+.procurement-clearfilter {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 0.6rem;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 0;
+}
+
+.procurement-clearfilter:hover { text-decoration: underline; }
+
+/* Building drill-down: scope banner + clickable building names. */
+.procurement-buildingbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.1rem;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
 }
 
-.procurement-stat-val {
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1;
+.procurement-buildingbar-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
-.procurement-stat-label {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+.procurement-buildingbar-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.procurement-buildingbar-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.procurement-buildingbar-back {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
+}
+
+.procurement-buildingbar-back:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-base);
+}
+
+.procurement-buildingbar-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.procurement-building-link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
   font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.procurement-building-link:hover { text-decoration: underline; }
+
+.procurement-building-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Plain-language status chip; dot + label so state never rides on color alone. */
+.procurement-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.procurement-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.procurement-badge--danger  { background: var(--danger-sub);  color: var(--danger); }
+.procurement-badge--warning { background: var(--warning-sub); color: var(--warning); }
+.procurement-badge--success { background: var(--success-sub); color: var(--success); }
+
+.procurement-due {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.procurement-due--danger  { color: var(--danger); }
+.procurement-due--warning { color: var(--warning); }
+.procurement-due--success { color: var(--text-secondary); }
+
+.procurement-due-date {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+.procurement-empty {
+  padding: 0.85rem 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.procurement-blindspot-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: -0.25rem 0 0.6rem;
+  max-width: 65ch;
 }
 
 .procurement-section {
@@ -2507,7 +2768,7 @@ textarea:disabled {
 
 .procurement-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.6fr 1fr 0.7fr 0.7fr 0.6fr 0.7fr;
+  grid-template-columns: 1.1fr 1.5fr 0.9fr 0.9fr 0.6fr 0.6fr 0.6fr;
   gap: 0.5rem;
   align-items: center;
   padding: 0.6rem 0.25rem;
@@ -2590,12 +2851,13 @@ textarea:disabled {
 }
 
 @media (max-width: 720px) {
-  .procurement-summary { grid-template-columns: repeat(2, 1fr); }
+  .procurement-cards { grid-template-columns: 1fr; }
+  /* Keep the decision columns (needed-in, status, order qty); drop raw counts. */
   .procurement-row {
-    grid-template-columns: 1fr 1fr 0.7fr 0.7fr;
+    grid-template-columns: 1fr 1fr 0.8fr 0.9fr 0.5fr;
   }
-  .procurement-row > span:nth-child(3),
-  .procurement-row > span:nth-child(7) { display: none; }
+  .procurement-row > span:nth-child(5),
+  .procurement-row > span:nth-child(6) { display: none; }
   .procurement-blindspot { grid-template-columns: auto 1fr 1fr; }
   .procurement-blindspot-building { display: none; }
 }

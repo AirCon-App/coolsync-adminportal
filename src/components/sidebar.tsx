@@ -12,7 +12,7 @@ import {
   SlInfo,
   SlBookOpen,
 } from "react-icons/sl";
-import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper, TbLayoutList, TbClipboardList } from "react-icons/tb";
+import { TbAirConditioning, TbSun, TbMoon, TbBuildingSkyscraper, TbBuildingCommunity, TbLayoutList, TbClipboardList } from "react-icons/tb";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import CoolSyncLogo from "./CoolSyncLogo";
@@ -32,6 +32,12 @@ interface NavGroup {
 }
 
 const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Portfolio",
+    items: [
+      { to: "/portfolio", label: "All Buildings", icon: TbBuildingCommunity, superAdminOnly: true },
+    ],
+  },
   {
     label: "Building Data",
     items: [
@@ -134,17 +140,18 @@ export default function Sidebar() {
       <BuildingSwitcher collapsed={collapsed} />
 
       <nav className="sidebar-nav" aria-label="Main navigation">
-        {NAV_GROUPS.map((group, gi) => {
-          const visibleItems = group.items.filter(
-            (item) => !item.superAdminOnly || isSuperAdmin
-          );
-          if (visibleItems.length === 0) return null;
-          return (
+        {NAV_GROUPS
+          .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => !item.superAdminOnly || isSuperAdmin),
+          }))
+          .filter((group) => group.items.length > 0)
+          .map((group, gi) => (
             <div key={group.label} className={`sidebar-nav-group${gi > 0 ? " sidebar-nav-group--divided" : ""}`}>
               {!collapsed && (
                 <span className="sidebar-nav-group-label">{group.label}</span>
               )}
-              {visibleItems.map(({ to, label, icon: Icon }) => (
+              {group.items.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -160,8 +167,7 @@ export default function Sidebar() {
                 </NavLink>
               ))}
             </div>
-          );
-        })}
+          ))}
       </nav>
 
       <div className="sidebar-footer">

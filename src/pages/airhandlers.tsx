@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import api from "../data/api";
@@ -6,6 +6,7 @@ import { getErrorMessage } from "../utils/apiError";
 import { useBuilding } from "../context/BuildingContext";
 import { useAuth } from "../context/AuthContext";
 import { Pagination } from "../components/Pagination";
+import { useApiData } from "../hooks/useApiData";
 
 interface AirHandler { id: number; airHandlerGuid: string; name: string; description?: string; filtersName?: string; sku?: string; quantity?: number; scheduleChangeInterval?: string; areaId?: number | null; areaLabel?: string; }
 interface CatalogItem { catalogItemId: number; name: string; sku?: string; }
@@ -29,10 +30,7 @@ const UNGROUPED_KEY = "__ungrouped__";
 const PAGE_SIZE = 25;
 
 export default function AirHandlersPage() {
-  const [data, setData] = useState<AirHandler[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -64,24 +62,25 @@ export default function AirHandlersPage() {
 
   useEffect(() => { setPage(1); }, [activeBuilding]);
 
-  useEffect(() => {
-    if (!activeBuilding) return;
-    let mounted = true;
-    const params = new URLSearchParams({
-      buildingId: String(activeBuilding.buildingId),
-      page: String(page),
-      pageSize: String(PAGE_SIZE),
-    });
-    if (search) params.set("search", search);
-    const t = setTimeout(() => {
-      api.get(`/AirHandlers?${params}`).then((res) => {
-        if (!mounted) return;
-        setData(res.data.items);
-        setTotalCount(res.data.totalCount);
-      }).catch(() => { if (mounted) { setData([]); setTotalCount(0); } });
-    }, 250);
-    return () => { mounted = false; clearTimeout(t); };
-  }, [activeBuilding, page, search, refreshKey]);
+  const { data: pageData, reload } = useApiData<{ items: AirHandler[]; totalCount: number }>(
+    () => {
+      const params = new URLSearchParams({
+        buildingId: String(activeBuilding!.buildingId),
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (search) params.set("search", search);
+      return api.get(`/AirHandlers?${params}`).then((res) => res.data);
+    },
+    "Air handlers failed to load.",
+    {
+      key: `${activeBuilding?.buildingId}|${page}|${search}`,
+      debounceMs: 250,
+      enabled: !!activeBuilding,
+    },
+  );
+  const data = useMemo(() => pageData?.items ?? [], [pageData]);
+  const totalCount = pageData?.totalCount ?? 0;
 
   useEffect(() => {
     if (!activeBuilding) return;
@@ -146,7 +145,7 @@ export default function AirHandlersPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadStatus(res.data.message || "Upload successful.");
-      setRefreshKey((k) => k + 1);
+      reload();
     } catch (err) {
       setUploadError(getErrorMessage(err));
     } finally {
@@ -206,7 +205,7 @@ export default function AirHandlersPage() {
           [...new Set<string>([...prev, resolvedAreaLabel!])].sort()
         );
       }
-      setRefreshKey((k) => k + 1);
+      reload();
       setShowAddModal(false);
     } catch (err) {
       setAddError(getErrorMessage(err));
@@ -246,7 +245,7 @@ export default function AirHandlersPage() {
         handlerIds: [editingHandler.id],
         areaId: resolvedAreaId,
       });
-      setRefreshKey((k) => k + 1);
+      reload();
       setEditingHandler(null);
     } catch (err) {
       setEditError(getErrorMessage(err));
@@ -262,7 +261,7 @@ export default function AirHandlersPage() {
     try {
       const res = await api.post("/AirHandlers/backfill-catalog-items");
       setBackfillResult({ matched: res.data.matched, unmatched: res.data.unmatched });
-      setRefreshKey((k) => k + 1);
+      reload();
     } catch (err) {
       setBackfillError(getErrorMessage(err));
     } finally {
@@ -436,7 +435,7 @@ export default function AirHandlersPage() {
                         {handlers.length} unit{handlers.length !== 1 ? "s" : ""}
                       </span>
                     </span>
-                    <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{isCollapsed ? "▶" : "▼"}</span>
+                    <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{isCollapsed ? "â–¶" : "â–¼"}</span>
                   </button>
                   {!isCollapsed && (
                     <div className="data-table-wrap" style={{ borderRadius: 0, border: "none" }}>

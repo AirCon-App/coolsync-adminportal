@@ -16,10 +16,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Anonymous auth endpoints legitimately return 401/400 on bad input; a failed
+// login must surface its error in the form, not trigger the expired-session
+// redirect (which reloads the page and wipes the message before it renders).
+const ANONYMOUS_AUTH_ENDPOINT = /auth\/(login|forgot-password|reset-password|change-password)/i;
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isAuthEndpoint = ANONYMOUS_AUTH_ENDPOINT.test(err.config?.url ?? "");
+    if (err.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem("token");
       localStorage.removeItem("cs-active-building");
       window.location.href = "/";
